@@ -8,4 +8,10 @@
     <string name="no_schemes">No schemes registered</string>
     <string name="vfs_status">VFS Router Status</string>
     <string name="status_ready">Operational</string>
+    <string name="devices">Devices</string>
+    <string name="favorites">Favorites</string>
+    <string name="tags">Finder Tags</string>
+    <string name="empty_folder">Folder is empty</string>
+    <string name="storage_permission_required">All files access required</string>
+    <string name="grant_permission">Grant Permission</string>
 </resources>

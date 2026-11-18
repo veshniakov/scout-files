@@ -8,4 +8,10 @@
     <string name="no_schemes">Нет зарегистрированных схем</string>
     <string name="vfs_status">Статус маршрутизатора VFS</string>
     <string name="status_ready">Готов к работе</string>
+    <string name="devices">Устройства</string>
+    <string name="favorites">Избранное</string>
+    <string name="tags">Теги Finder</string>
+    <string name="empty_folder">Папка пуста</string>
+    <string name="storage_permission_required">Требуется доступ ко всем файлам</string>
+    <string name="grant_permission">Предоставить доступ</string>
 </resources>

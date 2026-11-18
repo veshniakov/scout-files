@@ -23,4 +23,7 @@ rootProject.name = "Scout"
 include(":app")
 include(":core:model")
 include(":core:vfs")
+include(":core:database")
 include(":core:designsystem")
+include(":providers:local")
+include(":feature:explorer")

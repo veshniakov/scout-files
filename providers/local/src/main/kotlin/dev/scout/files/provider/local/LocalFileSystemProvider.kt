@@ -1,5 +1,6 @@
-package dev.scout.files.core.vfs.provider
+package dev.scout.files.provider.local
 
+import android.webkit.MimeTypeMap
 import dev.scout.files.core.model.VfsException
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
@@ -21,12 +22,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Local File System provider implementing POSIX file access on Android / Linux.
+ * High-performance POSIX / Linux local file system provider.
+ * Implements full metadata parsing (POSIX permissions, dotfiles, MIME types via MimeTypeMap),
+ * random-access seekable streaming, and recursive tree management.
  */
 @Singleton
 class LocalFileSystemProvider @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : FileSystemProvider {
+
+    constructor() : this(Dispatchers.IO)
 
     override val scheme: String = "file"
 
@@ -74,7 +79,9 @@ class LocalFileSystemProvider @Inject constructor(
     override suspend fun openRandomAccess(uri: VfsUri, mode: String): RandomAccessContent = withContext(ioDispatcher) {
         ensureActive()
         val file = resolveFile(uri)
-        if (!file.exists() && mode == "r") throw VfsException.NotFound(uri)
+        if (!file.exists() && mode.contains("r") && !mode.contains("w")) {
+            throw VfsException.NotFound(uri)
+        }
         file.parentFile?.mkdirs()
         FileRandomAccessContent(RandomAccessFile(file, mode), ioDispatcher)
     }
@@ -126,6 +133,7 @@ class LocalFileSystemProvider @Inject constructor(
                     var bytesCopied = 0L
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
+                        ensureActive()
                         output.write(buffer, 0, read)
                         bytesCopied += read
                         onProgress?.invoke(bytesCopied, totalBytes)
@@ -139,12 +147,25 @@ class LocalFileSystemProvider @Inject constructor(
 
     private fun nodeFromFile(uri: VfsUri, file: File): VfsNode {
         val isDir = file.isDirectory
-        val mime = if (isDir) null else URLConnection.guessContentTypeFromName(file.name)
+        val extension = if (!isDir && file.name.contains('.')) file.name.substringAfterLast('.', "") else ""
+        val mimeType = if (isDir) {
+            null
+        } else {
+            val fromMimeMap = if (extension.isNotEmpty()) {
+                runCatching {
+                    MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
+                }.getOrNull()
+            } else null
+            fromMimeMap ?: URLConnection.guessContentTypeFromName(file.name)
+        }
+
         val permissions = buildString {
             append(if (file.canRead()) "r" else "-")
             append(if (file.canWrite()) "w" else "-")
             append(if (file.canExecute()) "x" else "-")
         }
+
+        val isHidden = file.name.startsWith(".") || file.isHidden
 
         return VfsNode(
             uri = uri,
@@ -152,15 +173,16 @@ class LocalFileSystemProvider @Inject constructor(
             isDirectory = isDir,
             sizeBytes = if (isDir) 0L else file.length(),
             lastModifiedMillis = file.lastModified(),
-            mimeType = mime,
+            mimeType = mimeType,
             permissions = permissions,
-            isHidden = file.isHidden
+            isHidden = isHidden,
+            extension = extension
         )
     }
 }
 
 /**
- * File-backed implementation of [RandomAccessContent].
+ * RandomAccessFile-backed implementation of [RandomAccessContent].
  */
 class FileRandomAccessContent(
     private val raf: RandomAccessFile,
