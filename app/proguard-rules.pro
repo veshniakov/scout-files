@@ -1,0 +1,1 @@
+# Scout App ProGuard Rules

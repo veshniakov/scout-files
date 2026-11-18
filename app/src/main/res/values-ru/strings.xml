@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Scout</string>
+    <string name="play_store_title">Scout: Проводник и облака</string>
+    <string name="diagnostic_title">Диагностика Scout и ядро VFS</string>
+    <string name="registered_schemes">Зарегистрированные схемы VFS</string>
+    <string name="active_uri">Текущий URI</string>
+    <string name="no_schemes">Нет зарегистрированных схем</string>
+    <string name="vfs_status">Статус маршрутизатора VFS</string>
+    <string name="status_ready">Готов к работе</string>
+</resources>

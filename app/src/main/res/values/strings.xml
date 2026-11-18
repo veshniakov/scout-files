@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Scout</string>
+    <string name="play_store_title">Scout: File Manager &amp; NAS</string>
+    <string name="diagnostic_title">Scout Diagnostics &amp; VFS Core</string>
+    <string name="registered_schemes">Registered VFS Schemes</string>
+    <string name="active_uri">Active URI</string>
+    <string name="no_schemes">No schemes registered</string>
+    <string name="vfs_status">VFS Router Status</string>
+    <string name="status_ready">Operational</string>
+</resources>
