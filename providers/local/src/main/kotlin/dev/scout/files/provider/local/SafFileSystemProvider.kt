@@ -108,8 +108,10 @@ class SafFileSystemProvider @Inject constructor(
 
     override suspend fun rename(sourceUri: VfsUri, targetUri: VfsUri): Boolean = withContext(ioDispatcher) {
         ensureActive()
-        val doc = resolveDocument(sourceUri)
-        doc.renameTo(targetUri.name)
+        runCatching {
+            val doc = resolveDocument(sourceUri)
+            doc.renameTo(targetUri.name)
+        }.getOrDefault(false)
     }
 
     override suspend fun copyTo(
@@ -183,7 +185,7 @@ class ParcelFileDescriptorRandomAccessContent(
     override suspend fun read(buffer: ByteArray, offset: Int, length: Int): Int = withContext(dispatcher) {
         val bytesRead = Os.read(pfd.fileDescriptor, buffer, offset, length)
         if (bytesRead > 0) currentPosition += bytesRead
-        bytesRead
+        if (bytesRead == 0) -1 else bytesRead
     }
 
     override suspend fun write(buffer: ByteArray, offset: Int, length: Int) = withContext(dispatcher) {

@@ -18,7 +18,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.scout.files.feature.explorer.R
 
 @Composable
 fun CreateDirectoryDialog(
@@ -29,15 +31,15 @@ fun CreateDirectoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Новая папка") },
+        title = { Text(stringResource(R.string.dialog_new_folder_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Введите имя создаваемой папки:")
+                Text(stringResource(R.string.dialog_new_folder_message))
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
-                    placeholder = { Text("Имя папки") },
+                    placeholder = { Text(stringResource(R.string.dialog_folder_name_placeholder)) },
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -52,12 +54,12 @@ fun CreateDirectoryDialog(
                 },
                 enabled = name.isNotBlank()
             ) {
-                Text("Создать")
+                Text(stringResource(R.string.dialog_create))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена")
+                Text(stringResource(R.string.dialog_cancel))
             }
         }
     )
@@ -73,10 +75,10 @@ fun RenameDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Переименовать") },
+        title = { Text(stringResource(R.string.dialog_rename_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Введите новое имя элемента:")
+                Text(stringResource(R.string.dialog_rename_message))
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -95,12 +97,12 @@ fun RenameDialog(
                 },
                 enabled = name.isNotBlank() && name != initialName
             ) {
-                Text("Сохранить")
+                Text(stringResource(R.string.dialog_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена")
+                Text(stringResource(R.string.dialog_cancel))
             }
         }
     )
@@ -114,9 +116,9 @@ fun DeleteConfirmationDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Подтверждение удаления") },
+        title = { Text(stringResource(R.string.dialog_delete_title)) },
         text = {
-            Text("Вы действительно хотите безвозвратно удалить выбранные элементы ($itemCount шт.)?")
+            Text(stringResource(R.string.dialog_delete_message, itemCount))
         },
         confirmButton = {
             Button(
@@ -125,12 +127,12 @@ fun DeleteConfirmationDialog(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Удалить")
+                Text(stringResource(R.string.dialog_delete))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена")
+                Text(stringResource(R.string.dialog_cancel))
             }
         }
     )

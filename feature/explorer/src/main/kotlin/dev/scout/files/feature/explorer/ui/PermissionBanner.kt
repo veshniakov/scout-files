@@ -18,8 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.scout.files.feature.explorer.R
 
 @Composable
 fun PermissionBanner(
@@ -54,13 +56,13 @@ fun PermissionBanner(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Требуется доступ ко всем файлам",
+                        text = stringResource(R.string.permission_banner_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
                     Text(
-                        text = "Для работы проводника Scout необходим доступ к накопителю устройства.",
+                        text = stringResource(R.string.permission_banner_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
                     )
@@ -72,7 +74,7 @@ fun PermissionBanner(
                 modifier = Modifier.align(Alignment.End),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Предоставить разрешение")
+                Text(stringResource(R.string.permission_banner_grant))
             }
         }
     }

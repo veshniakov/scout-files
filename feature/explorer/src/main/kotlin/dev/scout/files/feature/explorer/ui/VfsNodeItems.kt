@@ -31,11 +31,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.scout.files.core.model.FileTag
 import dev.scout.files.core.model.VfsNode
+import dev.scout.files.feature.explorer.R
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -80,7 +82,7 @@ fun VfsNodeListItem(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Выбрано",
+                        contentDescription = stringResource(R.string.node_selected),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(28.dp)
                     )
@@ -132,7 +134,8 @@ fun VfsNodeListItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val sizeText = if (node.isDirectory) "Папка" else ExplorerUiUtils.formatFileSize(node.sizeBytes)
+                    val folderLabel = stringResource(R.string.node_folder)
+                    val sizeText = if (node.isDirectory) folderLabel else ExplorerUiUtils.formatFileSize(node.sizeBytes)
                     val dateText = ExplorerUiUtils.formatDate(node.lastModifiedMillis)
 
                     Text(
@@ -165,7 +168,7 @@ fun VfsNodeListItem(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Visibility,
-                        contentDescription = "Быстрый просмотр",
+                        contentDescription = stringResource(R.string.node_quick_look),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -220,7 +223,7 @@ fun VfsNodeGridItem(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Выбрано",
+                        contentDescription = stringResource(R.string.node_selected),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(36.dp)
                     )
@@ -283,7 +286,7 @@ fun VfsNodeGridItem(
             )
 
             Text(
-                text = if (node.isDirectory) "Папка" else ExplorerUiUtils.formatFileSize(node.sizeBytes),
+                text = if (node.isDirectory) stringResource(R.string.node_folder) else ExplorerUiUtils.formatFileSize(node.sizeBytes),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1

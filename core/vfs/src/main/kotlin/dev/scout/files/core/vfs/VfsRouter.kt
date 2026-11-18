@@ -134,7 +134,7 @@ class VfsRouter @Inject constructor(
         crossProtocolCopy(sourceProvider, targetProvider, sourceUri, targetUri, onProgress)
     }
 
-    private suspend fun crossProtocolCopy(
+    private suspend fun kotlinx.coroutines.CoroutineScope.crossProtocolCopy(
         sourceProvider: FileSystemProvider,
         targetProvider: FileSystemProvider,
         sourceUri: VfsUri,
@@ -160,6 +160,7 @@ class VfsRouter @Inject constructor(
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
+                        ensureActive()
                         output.write(buffer, 0, read)
                         bytesCopied += read
                         onProgress?.invoke(bytesCopied, totalBytes)

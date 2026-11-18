@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Scout</string>
+    <string name="app_tagline">Проводник</string>
+
+    <!-- Sidebar -->
+    <string name="sidebar_devices">Устройства</string>
+    <string name="sidebar_favorites">Избранное</string>
+    <string name="sidebar_tags">Теги Finder</string>
+    <string name="storage_free_of_total">Свободно %1$s из %2$s</string>
+    <string name="add_to_favorites">Добавить в избранное</string>
+    <string name="remove_bookmark">Удалить закладку</string>
+
+    <!-- Standard Directories -->
+    <string name="dir_home">Домашняя папка</string>
+    <string name="dir_downloads">Загрузки</string>
+    <string name="dir_documents">Документы</string>
+    <string name="dir_pictures">Изображения</string>
+    <string name="dir_camera">Фото (DCIM)</string>
+    <string name="dir_music">Музыка</string>
+    <string name="dir_movies">Видео</string>
+
+    <!-- Finder Tags -->
+    <string name="tag_red">Красный</string>
+    <string name="tag_orange">Оранжевый</string>
+    <string name="tag_yellow">Желтый</string>
+    <string name="tag_green">Зеленый</string>
+    <string name="tag_blue">Синий</string>
+    <string name="tag_purple">Фиолетовый</string>
+    <string name="tag_gray">Серый</string>
+
+    <!-- Top Bar & Actions -->
+    <string name="topbar_menu">Боковое меню</string>
+    <string name="topbar_search_hint">Поиск в текущей папке…</string>
+    <string name="topbar_close_search">Закрыть поиск</string>
+    <string name="topbar_search">Поиск</string>
+    <string name="topbar_grid_mode">Режим сетки</string>
+    <string name="topbar_list_mode">Режим списка</string>
+    <string name="topbar_sort">Сортировка</string>
+    <string name="sort_by_name">По имени</string>
+    <string name="sort_by_size">По размеру</string>
+    <string name="sort_by_date">По дате изменения</string>
+    <string name="sort_by_type">По типу расширения</string>
+    <string name="sort_ascending">По возрастанию</string>
+    <string name="sort_descending">По убыванию</string>
+    <string name="topbar_more">Еще</string>
+    <string name="action_create_folder">Создать папку</string>
+    <string name="action_enable_dual_pane">Включить 2 панели</string>
+    <string name="action_disable_dual_pane">Отключить 2 панели</string>
+    <string name="action_show_hidden">Показывать скрытые (.dotfiles)</string>
+    <string name="action_hide_hidden">Скрыть скрытые файлы</string>
+
+    <!-- Selection Bar -->
+    <string name="selection_cancel">Отменить выбор</string>
+    <string name="selection_count">Выбрано: %1$d</string>
+    <string name="selection_select_all">Выбрать все</string>
+    <string name="selection_assign_tag">Назначить тег</string>
+    <string name="selection_quick_look">Быстрый просмотр</string>
+    <string name="selection_rename">Переименовать</string>
+    <string name="selection_copy_adjacent">Копировать во вторую панель</string>
+    <string name="selection_move_adjacent">Переместить во вторую панель</string>
+    <string name="selection_delete">Удалить выбранное</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_new_folder_title">Новая папка</string>
+    <string name="dialog_new_folder_message">Введите имя создаваемой папки:</string>
+    <string name="dialog_folder_name_placeholder">Имя папки</string>
+    <string name="dialog_create">Создать</string>
+    <string name="dialog_cancel">Отмена</string>
+    <string name="dialog_rename_title">Переименовать</string>
+    <string name="dialog_rename_message">Введите новое имя элемента:</string>
+    <string name="dialog_save">Сохранить</string>
+    <string name="dialog_delete_title">Подтверждение удаления</string>
+    <string name="dialog_delete_message">Вы действительно хотите безвозвратно удалить выбранные элементы (%1$d шт.)?</string>
+    <string name="dialog_delete">Удалить</string>
+
+    <!-- Quick Look -->
+    <string name="quick_look_folder">Папка</string>
+    <string name="quick_look_file">Файл</string>
+    <string name="quick_look_close">Закрыть</string>
+    <string name="quick_look_metadata">Метаданные</string>
+    <string name="quick_look_size">Размер</string>
+    <string name="quick_look_bytes">байт</string>
+    <string name="quick_look_size_format">%1$s (%2$d байт)</string>
+    <string name="quick_look_modified">Изменен</string>
+    <string name="quick_look_permissions">Права (POSIX)</string>
+    <string name="quick_look_hidden">Скрытый</string>
+    <string name="quick_look_yes">Да</string>
+    <string name="quick_look_no">Нет</string>
+    <string name="quick_look_uri">URI</string>
+    <string name="quick_look_checksums">Контрольные суммы</string>
+    <string name="quick_look_calculate">Рассчитать</string>
+    <string name="quick_look_text_preview">Быстрый просмотр текста (первые 8 КБ)</string>
+
+    <!-- Permission Banner -->
+    <string name="permission_banner_title">Требуется доступ ко всем файлам</string>
+    <string name="permission_banner_desc">Для работы проводника Scout необходим доступ к накопителю устройства.</string>
+    <string name="permission_banner_grant">Предоставить разрешение</string>
+
+    <!-- Tabs and Pane -->
+    <string name="tab_close">Закрыть вкладку</string>
+    <string name="tab_new">Новая вкладка</string>
+    <string name="tab_default_name">Накопитель</string>
+    <string name="tab_root">Корень</string>
+    <string name="tab_second_pane">Вторая панель</string>
+    <string name="empty_folder">Папка пуста</string>
+    <string name="retry">Повторить</string>
+    <string name="node_selected">Выбрано</string>
+    <string name="node_folder">Папка</string>
+    <string name="node_quick_look">Быстрый просмотр</string>
+
+    <!-- Snackbars / Status -->
+    <string name="folder_created">Папка \'%1$s\' создана</string>
+    <string name="folder_create_failed">Не удалось создать папку</string>
+    <string name="node_renamed">Переименовано в \'%1$s\'</string>
+    <string name="rename_failed">Ошибка переименования</string>
+    <string name="items_deleted">Удалено элементов: %1$d</string>
+    <string name="items_copied">Скопировано элементов: %1$d</string>
+    <string name="items_moved">Перемещено элементов: %1$d</string>
+    <string name="bookmark_added">Добавлено в Избранное</string>
+    <string name="bookmark_removed">Закладка удалена</string>
+    <string name="error_prefix">Ошибка: %1$s</string>
+    <string name="error_reading_directory">Ошибка чтения каталога</string>
+</resources>

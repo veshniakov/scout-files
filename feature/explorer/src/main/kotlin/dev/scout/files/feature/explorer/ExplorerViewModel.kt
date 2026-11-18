@@ -12,6 +12,7 @@ import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
 import dev.scout.files.core.vfs.VfsRouter
 import dev.scout.files.core.vfs.di.IoDispatcher
+import dev.scout.files.feature.explorer.R
 import dev.scout.files.feature.explorer.model.ExplorerEffect
 import dev.scout.files.feature.explorer.model.ExplorerIntent
 import dev.scout.files.feature.explorer.model.ExplorerPaneState
@@ -68,8 +69,9 @@ class ExplorerViewModel @Inject constructor(
                 ?: stdDirs.firstOrNull()?.uri
                 ?: VfsUri("file:///storage/emulated/0")
 
+            val defaultTitle = runCatching { context.getString(R.string.tab_default_name) }.getOrDefault("Storage").ifBlank { "Storage" }
             val initialTab = ExplorerTab(
-                title = initialUri.name.ifEmpty { "Накопитель" },
+                title = initialUri.name.ifEmpty { defaultTitle },
                 currentUri = initialUri
             )
 
@@ -151,14 +153,16 @@ class ExplorerViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                val errorMsg = e.localizedMessage ?: runCatching { context.getString(R.string.error_reading_directory) }.getOrDefault("Error reading directory")
                 updatePane(paneIndex) { pane ->
                     pane.copy(
                         nodes = emptyList(),
                         isLoading = false,
-                        error = e.localizedMessage ?: "Ошибка чтения каталога"
+                        error = errorMsg
                     )
                 }
-                _effects.send(ExplorerEffect.ShowSnackbar("Ошибка: ${e.localizedMessage ?: e.message}"))
+                val prefix = runCatching { context.getString(R.string.error_prefix, errorMsg) }.getOrDefault("Error: $errorMsg")
+                _effects.send(ExplorerEffect.ShowSnackbar(prefix))
             }
         }
     }
@@ -167,10 +171,11 @@ class ExplorerViewModel @Inject constructor(
         val pane = getPane(paneIndex)
         val activeTab = pane.activeTab ?: return
 
+        val rootTitle = runCatching { context.getString(R.string.tab_root) }.getOrDefault("Root").ifBlank { "Root" }
         val newBackStack = activeTab.backStack + activeTab.currentUri
         val updatedTab = activeTab.copy(
             currentUri = uri,
-            title = uri.name.ifEmpty { "Корень" },
+            title = uri.name.ifEmpty { rootTitle },
             backStack = newBackStack,
             forwardStack = emptyList()
         )
@@ -186,13 +191,14 @@ class ExplorerViewModel @Inject constructor(
         val activeTab = pane.activeTab ?: return
         if (activeTab.backStack.isEmpty()) return
 
+        val rootTitle = runCatching { context.getString(R.string.tab_root) }.getOrDefault("Root").ifBlank { "Root" }
         val previousUri = activeTab.backStack.last()
         val newBackStack = activeTab.backStack.dropLast(1)
         val newForwardStack = listOf(activeTab.currentUri) + activeTab.forwardStack
 
         val updatedTab = activeTab.copy(
             currentUri = previousUri,
-            title = previousUri.name.ifEmpty { "Корень" },
+            title = previousUri.name.ifEmpty { rootTitle },
             backStack = newBackStack,
             forwardStack = newForwardStack
         )
@@ -208,8 +214,9 @@ class ExplorerViewModel @Inject constructor(
             ?: getPane(paneIndex).activeTab?.currentUri
             ?: VfsUri("file:///storage/emulated/0")
 
+        val newTabTitle = runCatching { context.getString(R.string.tab_new) }.getOrDefault("New tab").ifBlank { "New tab" }
         val newTab = ExplorerTab(
-            title = uri.name.ifEmpty { "Новая вкладка" },
+            title = uri.name.ifEmpty { newTabTitle },
             currentUri = uri
         )
 
@@ -251,8 +258,9 @@ class ExplorerViewModel @Inject constructor(
             val newEnabled = !state.isDualPaneEnabled
             if (newEnabled && state.secondaryPane == null) {
                 val primaryTab = state.primaryPane.activeTab
+                val secondPaneTitle = runCatching { context.getString(R.string.tab_second_pane) }.getOrDefault("Second pane").ifBlank { "Second pane" }
                 val secondTab = ExplorerTab(
-                    title = primaryTab?.title ?: "Вторая панель",
+                    title = primaryTab?.title ?: secondPaneTitle,
                     currentUri = primaryTab?.currentUri ?: VfsUri("file:///storage/emulated/0")
                 )
                 state.copy(
@@ -323,10 +331,12 @@ class ExplorerViewModel @Inject constructor(
         viewModelScope.launch {
             val success = vfsRouter.createDirectory(newDirUri)
             if (success) {
-                _effects.send(ExplorerEffect.ShowSnackbar("Папка '$name' создана"))
+                val msg = runCatching { context.getString(R.string.folder_created, name) }.getOrDefault("Folder '$name' created")
+                _effects.send(ExplorerEffect.ShowSnackbar(msg))
                 loadDirectory(activeTab.currentUri, paneIndex)
             } else {
-                _effects.send(ExplorerEffect.ShowSnackbar("Не удалось создать папку"))
+                val msg = runCatching { context.getString(R.string.folder_create_failed) }.getOrDefault("Failed to create folder")
+                _effects.send(ExplorerEffect.ShowSnackbar(msg))
             }
         }
     }
@@ -339,10 +349,12 @@ class ExplorerViewModel @Inject constructor(
         viewModelScope.launch {
             val success = vfsRouter.rename(oldUri, targetUri)
             if (success) {
-                _effects.send(ExplorerEffect.ShowSnackbar("Переименовано в '$newName'"))
+                val msg = runCatching { context.getString(R.string.node_renamed, newName) }.getOrDefault("Renamed to '$newName'")
+                _effects.send(ExplorerEffect.ShowSnackbar(msg))
                 loadDirectory(activeTab.currentUri, paneIndex)
             } else {
-                _effects.send(ExplorerEffect.ShowSnackbar("Ошибка переименования"))
+                val msg = runCatching { context.getString(R.string.rename_failed) }.getOrDefault("Failed to rename")
+                _effects.send(ExplorerEffect.ShowSnackbar(msg))
             }
         }
     }
@@ -358,7 +370,8 @@ class ExplorerViewModel @Inject constructor(
             for (uri in selected) {
                 if (vfsRouter.delete(uri, recursive = true)) count++
             }
-            _effects.send(ExplorerEffect.ShowSnackbar("Удалено элементов: $count"))
+            val msg = runCatching { context.getString(R.string.items_deleted, count) }.getOrDefault("Deleted items: $count")
+            _effects.send(ExplorerEffect.ShowSnackbar(msg))
             loadDirectory(activeTab.currentUri, paneIndex)
         }
     }
@@ -383,24 +396,58 @@ class ExplorerViewModel @Inject constructor(
                 val ok = if (move) vfsRouter.rename(src, dst) else vfsRouter.copy(src, dst)
                 if (ok) successCount++
             }
-            val action = if (move) "Перемещено" else "Скопировано"
-            _effects.send(ExplorerEffect.ShowSnackbar("$action элементов: $successCount"))
+            val msg = if (move) {
+                runCatching { context.getString(R.string.items_moved, successCount) }.getOrDefault("Moved items: $successCount")
+            } else {
+                runCatching { context.getString(R.string.items_copied, successCount) }.getOrDefault("Copied items: $successCount")
+            }
+            _effects.send(ExplorerEffect.ShowSnackbar(msg))
             sourcePane.activeTab?.currentUri?.let { loadDirectory(it, sourceIndex) }
             loadDirectory(targetUri, targetIndex)
         }
     }
 
+    private fun isTextOrCodeNode(node: VfsNode): Boolean {
+        if (node.isDirectory) return false
+        val mime = node.mimeType?.lowercase() ?: ""
+        if (mime.startsWith("text/")) return true
+        if (mime in setOf(
+                "application/json",
+                "application/xml",
+                "application/javascript",
+                "application/typescript",
+                "application/x-sh",
+                "application/x-yaml",
+                "application/sql",
+                "application/toml"
+            )
+        ) return true
+
+        val ext = node.extension.lowercase()
+        val textExtensions = setOf(
+            "txt", "md", "markdown", "json", "xml", "html", "htm", "css",
+            "js", "jsx", "ts", "tsx", "kt", "kts", "java", "c", "cpp", "cc",
+            "h", "hpp", "py", "rs", "go", "rb", "sh", "bash", "zsh", "gradle",
+            "properties", "toml", "yaml", "yml", "ini", "conf", "cfg", "log",
+            "csv", "tsv", "sql", "env", "gitignore", "gitattributes", "pro"
+        )
+        return ext in textExtensions
+    }
+
     private fun openQuickLook(node: VfsNode) {
         viewModelScope.launch {
             var preview: String? = null
-            if (!node.isDirectory && node.sizeBytes < 50L * 1024 * 1024) {
+            if (isTextOrCodeNode(node) && node.sizeBytes < 50L * 1024 * 1024) {
                 preview = withContext(ioDispatcher) {
                     runCatching {
                         vfsRouter.openInputStream(node.uri).use { stream ->
                             val buffer = ByteArray(8192)
                             val read = stream.read(buffer)
                             if (read > 0) {
-                                String(buffer, 0, read, Charsets.UTF_8)
+                                val isBinary = (0 until read).any { buffer[it] == 0.toByte() }
+                                if (!isBinary) {
+                                    String(buffer, 0, read, Charsets.UTF_8)
+                                } else null
                             } else null
                         }
                     }.getOrNull()
@@ -441,7 +488,7 @@ class ExplorerViewModel @Inject constructor(
                     val md5Hex = md5Digest.digest().joinToString("") { "%02x".format(it) }
                     val sha256Hex = sha256Digest.digest().joinToString("") { "%02x".format(it) }
                     Pair(md5Hex, sha256Hex)
-                }.getOrDefault(Pair("Ошибка", "Ошибка"))
+                }.getOrDefault(Pair("—", "—"))
             }
 
             _uiState.update {
@@ -459,14 +506,16 @@ class ExplorerViewModel @Inject constructor(
     private fun addBookmark(uri: VfsUri, title: String) {
         viewModelScope.launch {
             metadataRepository.addBookmark(uri, title)
-            _effects.send(ExplorerEffect.ShowSnackbar("Добавлено в Избранное"))
+            val msg = runCatching { context.getString(R.string.bookmark_added) }.getOrDefault("Added to Favorites")
+            _effects.send(ExplorerEffect.ShowSnackbar(msg))
         }
     }
 
     private fun removeBookmark(uri: VfsUri) {
         viewModelScope.launch {
             metadataRepository.removeBookmark(uri)
-            _effects.send(ExplorerEffect.ShowSnackbar("Закладка удалена"))
+            val msg = runCatching { context.getString(R.string.bookmark_removed) }.getOrDefault("Bookmark removed")
+            _effects.send(ExplorerEffect.ShowSnackbar(msg))
         }
     }
 

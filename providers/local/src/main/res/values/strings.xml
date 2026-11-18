@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="volume_internal">Internal Storage</string>
+    <string name="volume_external">External Storage</string>
+    <string name="volume_sd_card">SD Card</string>
+    <string name="volume_usb">USB Drive</string>
+    <string name="dir_home">Home</string>
+    <string name="dir_downloads">Downloads</string>
+    <string name="dir_documents">Documents</string>
+    <string name="dir_pictures">Pictures</string>
+    <string name="dir_camera">Photos (DCIM)</string>
+    <string name="dir_music">Music</string>
+    <string name="dir_movies">Videos</string>
+</resources>

@@ -1,5 +1,6 @@
 package dev.scout.files.feature.explorer.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AudioFile
@@ -26,6 +27,7 @@ import dev.scout.files.core.model.StorageVolume
 import dev.scout.files.core.model.TagColor
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VolumeType
+import dev.scout.files.feature.explorer.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,15 +35,49 @@ import java.util.Locale
 object ExplorerUiUtils {
 
     fun formatFileSize(bytes: Long): String {
-        if (bytes <= 0L) return "0 Б"
-        val units = arrayOf("Б", "КБ", "МБ", "ГБ", "ТБ")
+        val isRussian = Locale.getDefault().language.equals("ru", ignoreCase = true)
+        val zeroUnit = if (isRussian) "0 Б" else "0 B"
+        if (bytes <= 0L) return zeroUnit
+
+        val units = if (isRussian) {
+            arrayOf("Б", "КБ", "МБ", "ГБ", "ТБ")
+        } else {
+            arrayOf("B", "KB", "MB", "GB", "TB")
+        }
         val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
         val index = digitGroups.coerceIn(0, units.size - 1)
         val value = bytes / Math.pow(1024.0, index.toDouble())
         return if (index == 0) {
             "${bytes} ${units[index]}"
         } else {
-            String.format(Locale.US, "%.1f %s", value, units[index])
+            String.format(Locale.getDefault(), "%.1f %s", value, units[index])
+        }
+    }
+
+    @StringRes
+    fun getTagDisplayName(tagColor: TagColor): Int {
+        return when (tagColor) {
+            TagColor.RED -> R.string.tag_red
+            TagColor.ORANGE -> R.string.tag_orange
+            TagColor.YELLOW -> R.string.tag_yellow
+            TagColor.GREEN -> R.string.tag_green
+            TagColor.BLUE -> R.string.tag_blue
+            TagColor.PURPLE -> R.string.tag_purple
+            TagColor.GRAY -> R.string.tag_gray
+        }
+    }
+
+    @StringRes
+    fun getDefaultBookmarkTitleRes(iconKey: String): Int? {
+        return when (iconKey.lowercase()) {
+            "home" -> R.string.dir_home
+            "downloads" -> R.string.dir_downloads
+            "documents" -> R.string.dir_documents
+            "pictures" -> R.string.dir_pictures
+            "camera" -> R.string.dir_camera
+            "music" -> R.string.dir_music
+            "movies" -> R.string.dir_movies
+            else -> null
         }
     }
 

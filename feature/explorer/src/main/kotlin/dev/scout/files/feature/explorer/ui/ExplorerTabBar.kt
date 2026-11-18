@@ -26,9 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.scout.files.feature.explorer.R
 import dev.scout.files.feature.explorer.model.ExplorerTab
 
 /**
@@ -106,7 +108,7 @@ fun ExplorerTabBar(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Закрыть вкладку",
+                                contentDescription = stringResource(R.string.tab_close),
                                 modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -123,7 +125,7 @@ fun ExplorerTabBar(
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "Новая вкладка",
+                contentDescription = stringResource(R.string.tab_new),
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.primary
             )

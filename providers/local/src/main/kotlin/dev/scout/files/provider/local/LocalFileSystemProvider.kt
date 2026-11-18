@@ -109,7 +109,18 @@ class LocalFileSystemProvider @Inject constructor(
         val target = resolveFile(targetUri)
         if (!source.exists()) throw VfsException.NotFound(sourceUri)
         target.parentFile?.mkdirs()
-        source.renameTo(target)
+
+        if (source.renameTo(target)) {
+            true
+        } else {
+            // Cross-filesystem / mount-point move fallback
+            val copied = copyTo(sourceUri, targetUri)
+            if (copied) {
+                delete(sourceUri, recursive = true)
+            } else {
+                false
+            }
+        }
     }
 
     override suspend fun copyTo(
@@ -156,13 +167,18 @@ class LocalFileSystemProvider @Inject constructor(
                     MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
                 }.getOrNull()
             } else null
-            fromMimeMap ?: URLConnection.guessContentTypeFromName(file.name)
+            fromMimeMap ?: URLConnection.guessContentTypeFromName(file.name) ?: guessFallbackMimeType(extension)
         }
 
-        val permissions = buildString {
-            append(if (file.canRead()) "r" else "-")
-            append(if (file.canWrite()) "w" else "-")
-            append(if (file.canExecute()) "x" else "-")
+        val permissions = runCatching {
+            val posix = java.nio.file.Files.getPosixFilePermissions(file.toPath())
+            java.nio.file.attribute.PosixFilePermissions.toString(posix)
+        }.getOrElse {
+            buildString {
+                append(if (file.canRead()) "r" else "-")
+                append(if (file.canWrite()) "w" else "-")
+                append(if (file.canExecute()) "x" else "-")
+            }
         }
 
         val isHidden = file.name.startsWith(".") || file.isHidden
@@ -178,6 +194,30 @@ class LocalFileSystemProvider @Inject constructor(
             isHidden = isHidden,
             extension = extension
         )
+    }
+
+    private fun guessFallbackMimeType(extension: String): String? {
+        return when (extension.lowercase()) {
+            "kt", "kts" -> "text/x-kotlin"
+            "md", "markdown" -> "text/markdown"
+            "json" -> "application/json"
+            "yaml", "yml" -> "text/yaml"
+            "toml" -> "text/x-toml"
+            "sh", "bash", "zsh" -> "application/x-sh"
+            "py" -> "text/x-python"
+            "c", "h" -> "text/x-c"
+            "cpp", "hpp", "cc" -> "text/x-c++"
+            "rs" -> "text/x-rust"
+            "go" -> "text/x-go"
+            "java" -> "text/x-java"
+            "js" -> "application/javascript"
+            "ts" -> "application/typescript"
+            "sql" -> "application/sql"
+            "xml" -> "application/xml"
+            "gradle", "properties", "env", "conf", "ini", "cfg", "log" -> "text/plain"
+            "csv" -> "text/csv"
+            else -> null
+        }
     }
 }
 

@@ -85,4 +85,17 @@ class LocalFileSystemProviderTest {
         assertTrue(deleted)
         assertFalse(provider.exists(targetUri))
     }
+
+    @Test
+    fun testMetadataPermissionsAndFallbackMime() = runTest(testDispatcher) {
+        val root = tempFolder.root
+        val ktFile = File(root, "Main.kt").apply { writeText("fun main() = println()") }
+        val ktUri = VfsUri.fromFile(ktFile.absolutePath)
+
+        val metadata = provider.getMetadata(ktUri)
+        assertNotNull(metadata.permissions)
+        assertTrue(metadata.permissions!!.contains("r"))
+        assertEquals("text/x-kotlin", metadata.mimeType)
+        assertEquals("kt", metadata.extension)
+    }
 }

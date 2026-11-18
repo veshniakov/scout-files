@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="volume_internal">Внутренняя память</string>
+    <string name="volume_external">Внешний накопитель</string>
+    <string name="volume_sd_card">SD-карта</string>
+    <string name="volume_usb">USB-накопитель</string>
+    <string name="dir_home">Домашняя папка</string>
+    <string name="dir_downloads">Загрузки</string>
+    <string name="dir_documents">Документы</string>
+    <string name="dir_pictures">Изображения</string>
+    <string name="dir_camera">Фото (DCIM)</string>
+    <string name="dir_music">Музыка</string>
+    <string name="dir_movies">Видео</string>
+</resources>

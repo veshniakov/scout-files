@@ -58,7 +58,11 @@ class LocalStorageVolumeManager @Inject constructor(
                 }
 
                 val displayName = vol.getDescription(context).ifBlank {
-                    if (vol.isPrimary) "Внутренняя память" else "Внешний накопитель"
+                    if (vol.isPrimary) {
+                        context.getString(R.string.volume_internal)
+                    } else {
+                        context.getString(R.string.volume_external)
+                    }
                 }
 
                 result.add(
@@ -76,6 +80,37 @@ class LocalStorageVolumeManager @Inject constructor(
             }
         }
 
+        // Secondary / Removable storage discovery for API 26-29 or fallback
+        if (result.none { it.type == VolumeType.SD_CARD }) {
+            val externalDirs = runCatching { context.getExternalFilesDirs(null) }.getOrNull() ?: emptyArray()
+            for (extFile in externalDirs) {
+                if (extFile == null) continue
+                val fullPath = extFile.absolutePath
+                if (fullPath.contains("/Android/")) {
+                    val rootPath = fullPath.substringBefore("/Android/")
+                    val rootDir = File(rootPath)
+                    val isPrimary = Environment.getExternalStorageDirectory()?.absolutePath == rootPath
+                    if (!isPrimary && rootDir.exists() && rootDir.canRead()) {
+                        val statFs = runCatching { StatFs(rootDir.absolutePath) }.getOrNull()
+                        val totalBytes = statFs?.totalBytes ?: 0L
+                        val availableBytes = statFs?.availableBytes ?: 0L
+                        result.add(
+                            StorageVolume(
+                                id = rootDir.name,
+                                name = context.getString(R.string.volume_sd_card),
+                                rootUri = VfsUri.fromFile(rootDir.absolutePath),
+                                totalBytes = totalBytes,
+                                availableBytes = availableBytes,
+                                isRemovable = true,
+                                isEmulated = false,
+                                type = VolumeType.SD_CARD
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
         // Fallback or guarantee for primary storage if not added
         if (result.none { it.type == VolumeType.PRIMARY_STORAGE }) {
             val primaryDir = Environment.getExternalStorageDirectory()
@@ -85,7 +120,7 @@ class LocalStorageVolumeManager @Inject constructor(
                     0,
                     StorageVolume(
                         id = "primary",
-                        name = "Внутренняя память",
+                        name = context.getString(R.string.volume_internal),
                         rootUri = VfsUri.fromFile(primaryDir.absolutePath),
                         totalBytes = statFs?.totalBytes ?: 0L,
                         availableBytes = statFs?.availableBytes ?: 0L,
@@ -109,18 +144,18 @@ class LocalStorageVolumeManager @Inject constructor(
         val primaryPath = Environment.getExternalStorageDirectory()?.absolutePath ?: "/storage/emulated/0"
         list.add(
             StandardDirectory(
-                title = "Домашняя папка",
+                title = context.getString(R.string.dir_home),
                 uri = VfsUri.fromFile(primaryPath),
                 iconKey = "home"
             )
         )
 
-        fun addIfValid(dirType: String, title: String, iconKey: String) {
+        fun addIfValid(dirType: String, stringResId: Int, iconKey: String) {
             val dir = Environment.getExternalStoragePublicDirectory(dirType)
             if (dir != null) {
                 list.add(
                     StandardDirectory(
-                        title = title,
+                        title = context.getString(stringResId),
                         uri = VfsUri.fromFile(dir.absolutePath),
                         iconKey = iconKey
                     )
@@ -128,12 +163,12 @@ class LocalStorageVolumeManager @Inject constructor(
             }
         }
 
-        addIfValid(Environment.DIRECTORY_DOWNLOADS, "Загрузки", "downloads")
-        addIfValid(Environment.DIRECTORY_DOCUMENTS, "Документы", "documents")
-        addIfValid(Environment.DIRECTORY_PICTURES, "Изображения", "pictures")
-        addIfValid(Environment.DIRECTORY_DCIM, "Фото (DCIM)", "camera")
-        addIfValid(Environment.DIRECTORY_MUSIC, "Музыка", "music")
-        addIfValid(Environment.DIRECTORY_MOVIES, "Видео", "movies")
+        addIfValid(Environment.DIRECTORY_DOWNLOADS, R.string.dir_downloads, "downloads")
+        addIfValid(Environment.DIRECTORY_DOCUMENTS, R.string.dir_documents, "documents")
+        addIfValid(Environment.DIRECTORY_PICTURES, R.string.dir_pictures, "pictures")
+        addIfValid(Environment.DIRECTORY_DCIM, R.string.dir_camera, "camera")
+        addIfValid(Environment.DIRECTORY_MUSIC, R.string.dir_music, "music")
+        addIfValid(Environment.DIRECTORY_MOVIES, R.string.dir_movies, "movies")
 
         return list
     }

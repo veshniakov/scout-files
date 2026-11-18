@@ -42,6 +42,8 @@ import dev.scout.files.core.database.repository.Bookmark
 import dev.scout.files.core.model.StorageVolume
 import dev.scout.files.core.model.TagColor
 import dev.scout.files.core.model.VfsUri
+import androidx.compose.ui.res.stringResource
+import dev.scout.files.feature.explorer.R
 import dev.scout.files.provider.local.StandardDirectory
 
 /**
@@ -107,7 +109,7 @@ fun ExplorerSidebar(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "File Manager",
+                        text = stringResource(R.string.app_tagline),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -116,8 +118,8 @@ fun ExplorerSidebar(
 
             HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
 
-            // SECTION 1: DEVICES (Накопители)
-            SidebarSectionHeader(title = "Устройства")
+            // SECTION 1: DEVICES
+            SidebarSectionHeader(title = stringResource(R.string.sidebar_devices))
 
             volumes.forEach { volume ->
                 val isSelected = activeUri != null && activeUri.raw.startsWith(volume.rootUri.raw)
@@ -170,7 +172,7 @@ fun ExplorerSidebar(
                             )
 
                             Text(
-                                text = "Свободно $freeStr из $totalStr",
+                                text = stringResource(R.string.storage_free_of_total, freeStr, totalStr),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -179,20 +181,20 @@ fun ExplorerSidebar(
                 }
             }
 
-            // SECTION 2: FAVORITES (Избранное)
+            // SECTION 2: FAVORITES
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                SidebarSectionHeader(title = "Избранное")
+                SidebarSectionHeader(title = stringResource(R.string.sidebar_favorites))
                 IconButton(
                     onClick = onAddBookmark,
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.BookmarkAdd,
-                        contentDescription = "Добавить в избранное",
+                        contentDescription = stringResource(R.string.add_to_favorites),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -202,6 +204,12 @@ fun ExplorerSidebar(
             // Bookmarks from Database
             bookmarks.forEach { bookmark ->
                 val isSelected = activeUri == bookmark.uri
+                val displayTitle = if (bookmark.isPinned) {
+                    ExplorerUiUtils.getDefaultBookmarkTitleRes(bookmark.iconKey)?.let { stringResource(it) } ?: bookmark.title
+                } else {
+                    bookmark.title
+                }
+
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
@@ -223,7 +231,7 @@ fun ExplorerSidebar(
                             tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = bookmark.title,
+                            text = displayTitle,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
@@ -238,7 +246,7 @@ fun ExplorerSidebar(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Удалить закладку",
+                                    contentDescription = stringResource(R.string.remove_bookmark),
                                     modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -283,8 +291,8 @@ fun ExplorerSidebar(
 
             HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
 
-            // SECTION 3: TAGS (Теги Finder)
-            SidebarSectionHeader(title = "Теги Finder")
+            // SECTION 3: TAGS (Finder Tags)
+            SidebarSectionHeader(title = stringResource(R.string.sidebar_tags))
 
             TagColor.entries.forEach { tagColor ->
                 val isTagSelected = selectedTagFilter == tagColor
@@ -313,19 +321,12 @@ fun ExplorerSidebar(
                                 .background(composeColor)
                         )
                         Text(
-                            text = tagColor.displayNameRu,
+                            text = stringResource(ExplorerUiUtils.getTagDisplayName(tagColor)),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (isTagSelected) FontWeight.Bold else FontWeight.Normal,
                             color = if (isTagSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
                         )
-                        if (isTagSelected) {
-                            Text(
-                                text = "Фильтр",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                 }
             }

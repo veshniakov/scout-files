@@ -43,16 +43,26 @@ object StoragePermissionHelper {
      * Creates an Intent to prompt the user to grant MANAGE_APP_ALL_FILES_ACCESS_PERMISSION in Settings.
      */
     fun createManageAllFilesAccessIntent(context: Context): Intent {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val appIntent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                 data = Uri.fromParts("package", context.packageName, null)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-        } else {
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
+            if (context.packageManager?.resolveActivity(appIntent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
+                return appIntent
+            }
+
+            val generalIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+            if (context.packageManager?.resolveActivity(generalIntent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
+                return generalIntent
+            }
+        }
+
+        return Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     }
 }

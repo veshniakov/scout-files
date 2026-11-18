@@ -35,9 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.scout.files.core.model.TagColor
+import dev.scout.files.feature.explorer.R
 
 @Composable
 fun SelectionActionModeBar(
@@ -72,13 +74,13 @@ fun SelectionActionModeBar(
             IconButton(onClick = onClearSelection) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Отменить выбор",
+                    contentDescription = stringResource(R.string.selection_cancel),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
 
             Text(
-                text = "Выбрано: $selectedCount",
+                text = stringResource(R.string.selection_count, selectedCount),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -89,7 +91,7 @@ fun SelectionActionModeBar(
             IconButton(onClick = onSelectAll) {
                 Icon(
                     imageVector = Icons.Default.SelectAll,
-                    contentDescription = "Выбрать все",
+                    contentDescription = stringResource(R.string.selection_select_all),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
@@ -99,7 +101,7 @@ fun SelectionActionModeBar(
                 IconButton(onClick = { tagMenuExpanded = true }) {
                     Icon(
                         imageVector = Icons.Default.Label,
-                        contentDescription = "Назначить тег",
+                        contentDescription = stringResource(R.string.selection_assign_tag),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -121,7 +123,7 @@ fun SelectionActionModeBar(
                                             .clip(CircleShape)
                                             .background(ExplorerUiUtils.getTagComposeColor(tagColor))
                                     )
-                                    Text(tagColor.displayNameRu)
+                                    Text(stringResource(ExplorerUiUtils.getTagDisplayName(tagColor)))
                                 }
                             },
                             onClick = {
@@ -138,7 +140,7 @@ fun SelectionActionModeBar(
                 IconButton(onClick = onQuickLook) {
                     Icon(
                         imageVector = Icons.Default.Visibility,
-                        contentDescription = "Быстрый просмотр",
+                        contentDescription = stringResource(R.string.selection_quick_look),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -146,7 +148,7 @@ fun SelectionActionModeBar(
                 IconButton(onClick = onRename) {
                     Icon(
                         imageVector = Icons.Default.DriveFileRenameOutline,
-                        contentDescription = "Переименовать",
+                        contentDescription = stringResource(R.string.selection_rename),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -157,7 +159,7 @@ fun SelectionActionModeBar(
                 IconButton(onClick = onCopyAdjacent) {
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "Копировать во вторую панель",
+                        contentDescription = stringResource(R.string.selection_copy_adjacent),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -165,7 +167,7 @@ fun SelectionActionModeBar(
                 IconButton(onClick = onMoveAdjacent) {
                     Icon(
                         imageVector = Icons.Default.DriveFileMove,
-                        contentDescription = "Переместить во вторую панель",
+                        contentDescription = stringResource(R.string.selection_move_adjacent),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -175,7 +177,7 @@ fun SelectionActionModeBar(
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Удалить выбранное",
+                    contentDescription = stringResource(R.string.selection_delete),
                     tint = MaterialTheme.colorScheme.error
                 )
             }

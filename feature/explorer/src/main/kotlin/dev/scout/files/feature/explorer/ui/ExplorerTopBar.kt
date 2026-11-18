@@ -43,9 +43,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.scout.files.core.designsystem.component.ScoutPathBar
 import dev.scout.files.core.model.VfsUri
+import dev.scout.files.feature.explorer.R
 import dev.scout.files.feature.explorer.model.SortConfig
 import dev.scout.files.feature.explorer.model.SortDirection
 import dev.scout.files.feature.explorer.model.SortField
@@ -67,6 +69,7 @@ fun ExplorerTopBar(
     onToggleDualPane: () -> Unit,
     onSetSearchQuery: (String) -> Unit,
     onCreateDirectory: () -> Unit,
+    showNavigationIcon: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var isSearching by remember { mutableStateOf(searchQuery.isNotEmpty()) }
@@ -80,11 +83,13 @@ fun ExplorerTopBar(
                 .padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onOpenDrawer) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = "Боковое меню"
-                )
+            if (showNavigationIcon) {
+                IconButton(onClick = onOpenDrawer) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = stringResource(R.string.topbar_menu)
+                    )
+                }
             }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -93,13 +98,13 @@ fun ExplorerTopBar(
                         value = searchQuery,
                         onValueChange = onSetSearchQuery,
                         singleLine = true,
-                        placeholder = { Text("Поиск в текущей папке...") },
+                        placeholder = { Text(stringResource(R.string.topbar_search_hint)) },
                         trailingIcon = {
                             IconButton(onClick = {
                                 onSetSearchQuery("")
                                 isSearching = false
                             }) {
-                                Icon(Icons.Default.Close, contentDescription = "Закрыть поиск")
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.topbar_close_search))
                             }
                         },
                         shape = RoundedCornerShape(12.dp),
@@ -121,7 +126,7 @@ fun ExplorerTopBar(
                 IconButton(onClick = { isSearching = true }) {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Поиск"
+                        contentDescription = stringResource(R.string.topbar_search)
                     )
                 }
             }
@@ -130,7 +135,7 @@ fun ExplorerTopBar(
             IconButton(onClick = onToggleViewMode) {
                 Icon(
                     imageVector = if (viewMode == ViewMode.LIST) Icons.Default.GridView else Icons.Default.ViewList,
-                    contentDescription = if (viewMode == ViewMode.LIST) "Режим сетки" else "Режим списка"
+                    contentDescription = if (viewMode == ViewMode.LIST) stringResource(R.string.topbar_grid_mode) else stringResource(R.string.topbar_list_mode)
                 )
             }
 
@@ -139,7 +144,7 @@ fun ExplorerTopBar(
                 IconButton(onClick = { sortMenuExpanded = true }) {
                     Icon(
                         imageVector = Icons.Default.Sort,
-                        contentDescription = "Сортировка"
+                        contentDescription = stringResource(R.string.topbar_sort)
                     )
                 }
 
@@ -148,7 +153,7 @@ fun ExplorerTopBar(
                     onDismissRequest = { sortMenuExpanded = false }
                 ) {
                     SortMenuItem(
-                        title = "По имени",
+                        title = stringResource(R.string.sort_by_name),
                         isSelected = sortConfig.field == SortField.NAME,
                         onClick = {
                             onSetSortConfig(sortConfig.copy(field = SortField.NAME))
@@ -156,7 +161,7 @@ fun ExplorerTopBar(
                         }
                     )
                     SortMenuItem(
-                        title = "По размеру",
+                        title = stringResource(R.string.sort_by_size),
                         isSelected = sortConfig.field == SortField.SIZE,
                         onClick = {
                             onSetSortConfig(sortConfig.copy(field = SortField.SIZE))
@@ -164,7 +169,7 @@ fun ExplorerTopBar(
                         }
                     )
                     SortMenuItem(
-                        title = "По дате изменения",
+                        title = stringResource(R.string.sort_by_date),
                         isSelected = sortConfig.field == SortField.DATE,
                         onClick = {
                             onSetSortConfig(sortConfig.copy(field = SortField.DATE))
@@ -172,7 +177,7 @@ fun ExplorerTopBar(
                         }
                     )
                     SortMenuItem(
-                        title = "По типу расширения",
+                        title = stringResource(R.string.sort_by_type),
                         isSelected = sortConfig.field == SortField.TYPE,
                         onClick = {
                             onSetSortConfig(sortConfig.copy(field = SortField.TYPE))
@@ -198,7 +203,11 @@ fun ExplorerTopBar(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    if (sortConfig.direction == SortDirection.ASCENDING) "По возрастанию" else "По убыванию"
+                                    if (sortConfig.direction == SortDirection.ASCENDING) {
+                                        stringResource(R.string.sort_ascending)
+                                    } else {
+                                        stringResource(R.string.sort_descending)
+                                    }
                                 )
                             }
                         },
@@ -220,7 +229,7 @@ fun ExplorerTopBar(
                 IconButton(onClick = { moreMenuExpanded = true }) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Еще"
+                        contentDescription = stringResource(R.string.topbar_more)
                     )
                 }
 
@@ -239,7 +248,7 @@ fun ExplorerTopBar(
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Text("Создать папку")
+                                Text(stringResource(R.string.action_create_folder))
                             }
                         },
                         onClick = {
@@ -259,7 +268,13 @@ fun ExplorerTopBar(
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Text(if (isDualPaneEnabled) "Отключить 2 панели" else "Включить 2 панели")
+                                Text(
+                                    if (isDualPaneEnabled) {
+                                        stringResource(R.string.action_disable_dual_pane)
+                                    } else {
+                                        stringResource(R.string.action_enable_dual_pane)
+                                    }
+                                )
                             }
                         },
                         onClick = {
@@ -279,7 +294,13 @@ fun ExplorerTopBar(
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Text(if (showHiddenFiles) "Скрыть скрытые файлы" else "Показывать скрытые (.dotfiles)")
+                                Text(
+                                    if (showHiddenFiles) {
+                                        stringResource(R.string.action_hide_hidden)
+                                    } else {
+                                        stringResource(R.string.action_show_hidden)
+                                    }
+                                )
                             }
                         },
                         onClick = {

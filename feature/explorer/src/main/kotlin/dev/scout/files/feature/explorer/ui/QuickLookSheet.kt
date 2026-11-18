@@ -41,10 +41,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.scout.files.feature.explorer.R
 import dev.scout.files.feature.explorer.model.QuickLookState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,7 +106,11 @@ fun QuickLookSheet(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = if (state.node.isDirectory) "Папка" else (state.node.mimeType ?: "Файл"),
+                        text = if (state.node.isDirectory) {
+                            stringResource(R.string.quick_look_folder)
+                        } else {
+                            state.node.mimeType ?: stringResource(R.string.quick_look_file)
+                        },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -113,7 +119,7 @@ fun QuickLookSheet(
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Закрыть",
+                        contentDescription = stringResource(R.string.quick_look_close),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -146,17 +152,20 @@ fun QuickLookSheet(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Метаданные",
+                            text = stringResource(R.string.quick_look_metadata),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
                     }
 
-                    MetadataRow(label = "Размер", value = "${ExplorerUiUtils.formatFileSize(state.node.sizeBytes)} (${state.node.sizeBytes} байт)")
-                    MetadataRow(label = "Изменен", value = ExplorerUiUtils.formatDate(state.node.lastModifiedMillis))
-                    MetadataRow(label = "Права (POSIX)", value = state.node.permissions ?: "—")
-                    MetadataRow(label = "Скрытый", value = if (state.node.isHidden) "Да" else "Нет")
-                    MetadataRow(label = "URI", value = state.node.uri.raw)
+                    val formattedSize = ExplorerUiUtils.formatFileSize(state.node.sizeBytes)
+                    val sizeValue = stringResource(R.string.quick_look_size_format, formattedSize, state.node.sizeBytes)
+                    MetadataRow(label = stringResource(R.string.quick_look_size), value = sizeValue)
+                    MetadataRow(label = stringResource(R.string.quick_look_modified), value = ExplorerUiUtils.formatDate(state.node.lastModifiedMillis))
+                    MetadataRow(label = stringResource(R.string.quick_look_permissions), value = state.node.permissions ?: "—")
+                    val hiddenStr = if (state.node.isHidden) stringResource(R.string.quick_look_yes) else stringResource(R.string.quick_look_no)
+                    MetadataRow(label = stringResource(R.string.quick_look_hidden), value = hiddenStr)
+                    MetadataRow(label = stringResource(R.string.quick_look_uri), value = state.node.uri.raw)
                 }
             }
 
@@ -191,7 +200,7 @@ fun QuickLookSheet(
                                     tint = MaterialTheme.colorScheme.secondary
                                 )
                                 Text(
-                                    text = "Контрольные суммы",
+                                    text = stringResource(R.string.quick_look_checksums),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -211,7 +220,7 @@ fun QuickLookSheet(
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Рассчитать", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.quick_look_calculate), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -250,7 +259,7 @@ fun QuickLookSheet(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Быстрый просмотр текста (первые 8 КБ)",
+                                text = stringResource(R.string.quick_look_text_preview),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -282,7 +291,7 @@ fun QuickLookSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text("Закрыть")
+                Text(stringResource(R.string.quick_look_close))
             }
         }
     }

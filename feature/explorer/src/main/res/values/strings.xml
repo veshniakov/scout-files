@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Scout</string>
+    <string name="app_tagline">File Manager</string>
+
+    <!-- Sidebar -->
+    <string name="sidebar_devices">Devices</string>
+    <string name="sidebar_favorites">Favorites</string>
+    <string name="sidebar_tags">Finder Tags</string>
+    <string name="storage_free_of_total">%1$s free of %2$s</string>
+    <string name="add_to_favorites">Add to Favorites</string>
+    <string name="remove_bookmark">Remove Bookmark</string>
+
+    <!-- Standard Directories -->
+    <string name="dir_home">Home</string>
+    <string name="dir_downloads">Downloads</string>
+    <string name="dir_documents">Documents</string>
+    <string name="dir_pictures">Pictures</string>
+    <string name="dir_camera">Photos (DCIM)</string>
+    <string name="dir_music">Music</string>
+    <string name="dir_movies">Videos</string>
+
+    <!-- Finder Tags -->
+    <string name="tag_red">Red</string>
+    <string name="tag_orange">Orange</string>
+    <string name="tag_yellow">Yellow</string>
+    <string name="tag_green">Green</string>
+    <string name="tag_blue">Blue</string>
+    <string name="tag_purple">Purple</string>
+    <string name="tag_gray">Gray</string>
+
+    <!-- Top Bar & Actions -->
+    <string name="topbar_menu">Navigation menu</string>
+    <string name="topbar_search_hint">Search in current folder…</string>
+    <string name="topbar_close_search">Close search</string>
+    <string name="topbar_search">Search</string>
+    <string name="topbar_grid_mode">Grid view</string>
+    <string name="topbar_list_mode">List view</string>
+    <string name="topbar_sort">Sort</string>
+    <string name="sort_by_name">By name</string>
+    <string name="sort_by_size">By size</string>
+    <string name="sort_by_date">By date modified</string>
+    <string name="sort_by_type">By type / extension</string>
+    <string name="sort_ascending">Ascending</string>
+    <string name="sort_descending">Descending</string>
+    <string name="topbar_more">More</string>
+    <string name="action_create_folder">New folder</string>
+    <string name="action_enable_dual_pane">Enable 2 panes</string>
+    <string name="action_disable_dual_pane">Disable 2 panes</string>
+    <string name="action_show_hidden">Show hidden (.dotfiles)</string>
+    <string name="action_hide_hidden">Hide hidden files</string>
+
+    <!-- Selection Bar -->
+    <string name="selection_cancel">Clear selection</string>
+    <string name="selection_count">Selected: %1$d</string>
+    <string name="selection_select_all">Select all</string>
+    <string name="selection_assign_tag">Assign tag</string>
+    <string name="selection_quick_look">Quick Look</string>
+    <string name="selection_rename">Rename</string>
+    <string name="selection_copy_adjacent">Copy to other pane</string>
+    <string name="selection_move_adjacent">Move to other pane</string>
+    <string name="selection_delete">Delete selected</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_new_folder_title">New Folder</string>
+    <string name="dialog_new_folder_message">Enter folder name:</string>
+    <string name="dialog_folder_name_placeholder">Folder name</string>
+    <string name="dialog_create">Create</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_rename_title">Rename</string>
+    <string name="dialog_rename_message">Enter new name:</string>
+    <string name="dialog_save">Save</string>
+    <string name="dialog_delete_title">Confirm Deletion</string>
+    <string name="dialog_delete_message">Are you sure you want to permanently delete %1$d selected item(s)?</string>
+    <string name="dialog_delete">Delete</string>
+
+    <!-- Quick Look -->
+    <string name="quick_look_folder">Folder</string>
+    <string name="quick_look_file">File</string>
+    <string name="quick_look_close">Close</string>
+    <string name="quick_look_metadata">Metadata</string>
+    <string name="quick_look_size">Size</string>
+    <string name="quick_look_bytes">bytes</string>
+    <string name="quick_look_size_format">%1$s (%2$d bytes)</string>
+    <string name="quick_look_modified">Modified</string>
+    <string name="quick_look_permissions">Permissions (POSIX)</string>
+    <string name="quick_look_hidden">Hidden</string>
+    <string name="quick_look_yes">Yes</string>
+    <string name="quick_look_no">No</string>
+    <string name="quick_look_uri">URI</string>
+    <string name="quick_look_checksums">Checksums</string>
+    <string name="quick_look_calculate">Calculate</string>
+    <string name="quick_look_text_preview">Text Preview (first 8 KB)</string>
+
+    <!-- Permission Banner -->
+    <string name="permission_banner_title">All files access required</string>
+    <string name="permission_banner_desc">Scout file manager requires access to device storage to browse and manage files.</string>
+    <string name="permission_banner_grant">Grant Permission</string>
+
+    <!-- Tabs and Pane -->
+    <string name="tab_close">Close tab</string>
+    <string name="tab_new">New tab</string>
+    <string name="tab_default_name">Storage</string>
+    <string name="tab_root">Root</string>
+    <string name="tab_second_pane">Second pane</string>
+    <string name="empty_folder">Folder is empty</string>
+    <string name="retry">Retry</string>
+    <string name="node_selected">Selected</string>
+    <string name="node_folder">Folder</string>
+    <string name="node_quick_look">Quick Look</string>
+
+    <!-- Snackbars / Status -->
+    <string name="folder_created">Folder \'%1$s\' created</string>
+    <string name="folder_create_failed">Failed to create folder</string>
+    <string name="node_renamed">Renamed to \'%1$s\'</string>
+    <string name="rename_failed">Failed to rename</string>
+    <string name="items_deleted">Deleted items: %1$d</string>
+    <string name="items_copied">Copied items: %1$d</string>
+    <string name="items_moved">Moved items: %1$d</string>
+    <string name="bookmark_added">Added to Favorites</string>
+    <string name="bookmark_removed">Bookmark removed</string>
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="error_reading_directory">Error reading directory</string>
+</resources>

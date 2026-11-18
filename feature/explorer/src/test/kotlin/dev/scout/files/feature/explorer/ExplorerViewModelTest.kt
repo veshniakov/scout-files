@@ -311,4 +311,19 @@ class ExplorerViewModelTest {
         state = viewModel.uiState.value
         assertNull(state.quickLook)
     }
+
+    @Test
+    fun testQuickLookBinaryFileDoesNotReadTextPreview() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val videoNode = sampleNodes.find { it.name == "big_video.mp4" }!!
+        viewModel.handleIntent(ExplorerIntent.OpenQuickLook(videoNode))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNotNull(state.quickLook)
+        assertEquals(videoNode, state.quickLook?.node)
+        assertNull(state.quickLook?.textPreview)
+    }
 }

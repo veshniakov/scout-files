@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **`:providers:local`**: Extracted and expanded local file system provider module:
-  - `LocalFileSystemProvider`: POSIX/Linux file system implementation under `file://` scheme supporting hidden dotfiles, POSIX permissions, robust MIME resolution, safe directory creation, renaming, and recursive deletion.
-  - `SafFileSystemProvider`: Storage Access Framework implementation under `content://` scheme over Android `DocumentFile` and `ContentResolver`, with `ParcelFileDescriptor` seekable random access.
-  - `LocalStorageVolumeManager`: Query service discovering physical and emulated storage volumes (internal memory, SD cards) with byte-accurate `StatFs` metrics and standard directories (Downloads, Documents, Pictures, Music, Movies, DCIM).
-  - `StoragePermissionHelper`: Helper checking all-files access permissions (`MANAGE_EXTERNAL_STORAGE` on Android 11+ and legacy storage permissions on API 26–29) and launching system settings intent.
+  - `LocalFileSystemProvider`: POSIX/Linux file system implementation under `file://` scheme supporting hidden dotfiles, full POSIX permissions via `java.nio.file.Files.getPosixFilePermissions` with fallback, robust MIME resolution, safe directory creation, cross-filesystem renaming, and recursive deletion.
+  - `SafFileSystemProvider`: Storage Access Framework implementation under `content://` scheme over Android `DocumentFile` and `ContentResolver`, with `ParcelFileDescriptor` seekable random access and safe renaming.
+  - `LocalStorageVolumeManager`: Query service discovering physical and emulated storage volumes (internal memory, SD cards on API 26+) with byte-accurate `StatFs` metrics and localized standard directories (Downloads, Documents, Pictures, Music, Movies, DCIM).
+  - `StoragePermissionHelper`: Helper checking all-files access permissions (`MANAGE_EXTERNAL_STORAGE` on Android 11+ and legacy storage permissions on API 26–29) and launching system settings intent with OEM fallback.
   - `LocalProviderModule`: Hilt multibinding registering both local providers via `@Binds @IntoSet`.
 - **`:core:database`**: Persistence layer powered by Room and KSP:
   - `BookmarkEntity` & `BookmarkDao`: Sidebar favorite folder bookmarks with initial pre-population of default system directories.
@@ -21,15 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`:feature:explorer`**: Full-featured file explorer module built with MVI architecture:
   - `ExplorerViewModel` & Contract: State management for tabs, dual-pane layout, sorting, search, filtering, and contextual selection.
   - **Tabs & Dual-Pane**: Multi-tab browsing with independent backstacks and side-by-side dual-pane workspace for concurrent folder exploration.
-  - **macOS Finder & Nautilus Navigation Sidebar**: Devices section with live capacity indicators (`LinearProgressIndicator`), Favorites section, and Finder color tags filter.
+  - **macOS Finder & Nautilus Navigation Sidebar**: Responsive sidebar displaying Devices with live capacity indicators (`LinearProgressIndicator`), Favorites section with localized default pinned folders, and Finder color tags filter. Persistent side-by-side on wide screens / landscape (>=600dp) and `ModalNavigationDrawer` on portrait smartphones.
   - **View Modes**: List and adaptive Grid views with rich file metadata cards.
   - **Sorting & Filtering**: Sorting by name, size, modification date, and extension type (ascending/descending), with hidden dotfiles visibility toggle and real-time search.
-  - **Quick Look**: macOS-style modal sheet displaying file metadata, on-demand MD5 and SHA-256 checksum calculation, and monospace text preview (first 8 KB).
-  - **Contextual Selection Bar**: Multi-selection actions for tag assignment, folder creation, renaming, deletion, and cross-pane copy/move.
+  - **Quick Look**: macOS-style modal sheet displaying file metadata, on-demand MD5 and SHA-256 checksum calculation, and selective monospace text preview (first 8 KB) for text, code, and markdown files with binary guard.
+  - **Contextual Selection Bar**: Multi-selection actions for tag assignment with localized color names, folder creation, renaming, deletion, and cross-pane copy/move.
   - **Storage Permission Banner**: Warning card prompting for `MANAGE_EXTERNAL_STORAGE` access.
 - **`:app` Integration & Localization**:
   - `MainActivity` host integrating `ExplorerScreen`.
-  - Comprehensive English (`values/strings.xml`) and Russian (`values-ru/strings.xml`) string resources.
+  - Comprehensive English (`values/strings.xml`) and Russian (`values-ru/strings.xml`) string resources across all modules.
 - **Unit Testing**:
   - `LocalFileSystemProviderTest`: Tests for directory listing, dotfile filtering, directory creation, renaming, and recursive deletion.
   - `MetadataRepositoryTest`: Tests for bookmark persistence, default seeding, and Finder color tag assignment.
