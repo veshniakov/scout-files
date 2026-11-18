@@ -18,10 +18,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import dev.scout.files.core.model.ArchiveUri
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -146,83 +148,196 @@ fun ScoutPathBar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // Root / Scheme Item
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.clickable {
-                                onNavigate(VfsUri("${currentUri.scheme}:///"))
-                            }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Folder,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    text = currentUri.scheme.uppercase(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
+                        if (ArchiveUri.isArchiveUri(currentUri)) {
+                            val parsed = ArchiveUri.parse(currentUri)
+                            val sourceUri = parsed?.first
+                            val internalPath = parsed?.second ?: "/"
 
-                        // Path Segments
-                        val segments = currentUri.segments
-                        var accumulatedPath = ""
-
-                        segments.forEachIndexed { index, segment ->
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                                contentDescription = null,
-                                modifier = Modifier.size(10.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            accumulatedPath += "/$segment"
-                            val isLast = index == segments.size - 1
-                            val targetUri = VfsUri(
-                                buildString {
-                                    append("${currentUri.scheme}://")
-                                    if (!currentUri.host.isNullOrEmpty()) {
-                                        append(currentUri.host)
-                                        if (currentUri.port != null) append(":${currentUri.port}")
-                                    }
-                                    append(accumulatedPath)
-                                }
-                            )
-
+                            // 1. Back to parent directory of archive
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = if (isLast) {
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                },
+                                color = MaterialTheme.colorScheme.primaryContainer,
                                 modifier = Modifier.clickable {
-                                    onNavigate(targetUri)
+                                    val parentUri = sourceUri?.parent ?: VfsUri.ROOT_FILE
+                                    onNavigate(parentUri)
                                 }
                             ) {
-                                Text(
-                                    text = segment,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isLast) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (isLast) {
-                                        MaterialTheme.colorScheme.onSecondaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Archive,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = "ARCHIVE",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+
+                            // 2. Archive root file name
+                            if (sourceUri != null) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+
+                                val isArchiveRoot = internalPath == "/" || internalPath.isEmpty()
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isArchiveRoot) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    modifier = Modifier.clickable {
+                                        onNavigate(ArchiveUri.build(sourceUri, "/"))
+                                    }
+                                ) {
+                                    Text(
+                                        text = sourceUri.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isArchiveRoot) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (isArchiveRoot) {
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+
+                                // 3. Subdirectories inside archive
+                                val internalSegments = internalPath.split('/').filter { it.isNotEmpty() }
+                                var accumulatedInternal = ""
+                                internalSegments.forEachIndexed { idx, segment ->
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(10.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    accumulatedInternal += "/$segment"
+                                    val isLastSeg = idx == internalSegments.size - 1
+                                    val targetUri = ArchiveUri.build(sourceUri, accumulatedInternal)
+
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = if (isLastSeg) {
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        },
+                                        modifier = Modifier.clickable {
+                                            onNavigate(targetUri)
+                                        }
+                                    ) {
+                                        Text(
+                                            text = segment,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isLastSeg) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = if (isLastSeg) {
+                                                MaterialTheme.colorScheme.onSecondaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Standard Root / Scheme Item
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.clickable {
+                                    onNavigate(VfsUri("${currentUri.scheme}:///"))
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = currentUri.scheme.uppercase(),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+
+                            // Path Segments
+                            val segments = currentUri.segments
+                            var accumulatedPath = ""
+
+                            segments.forEachIndexed { index, segment ->
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                accumulatedPath += "/$segment"
+                                val isLast = index == segments.size - 1
+                                val targetUri = VfsUri(
+                                    buildString {
+                                        append("${currentUri.scheme}://")
+                                        if (!currentUri.host.isNullOrEmpty()) {
+                                            append(currentUri.host)
+                                            if (currentUri.port != null) append(":${currentUri.port}")
+                                        }
+                                        append(accumulatedPath)
+                                    }
+                                )
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isLast) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    modifier = Modifier.clickable {
+                                        onNavigate(targetUri)
+                                    }
+                                ) {
+                                    Text(
+                                        text = segment,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isLast) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (isLast) {
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }

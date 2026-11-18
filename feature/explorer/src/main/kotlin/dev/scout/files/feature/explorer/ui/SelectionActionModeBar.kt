@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -45,6 +47,7 @@ import dev.scout.files.feature.explorer.R
 fun SelectionActionModeBar(
     selectedCount: Int,
     isDualPane: Boolean,
+    isInsideArchive: Boolean = false,
     onClearSelection: () -> Unit,
     onSelectAll: () -> Unit,
     onAssignTag: (TagColor) -> Unit,
@@ -53,6 +56,8 @@ fun SelectionActionModeBar(
     onCopyAdjacent: () -> Unit,
     onMoveAdjacent: () -> Unit,
     onQuickLook: () -> Unit,
+    onCompress: () -> Unit = {},
+    onExtract: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var tagMenuExpanded by remember { mutableStateOf(false) }
@@ -173,13 +178,34 @@ fun SelectionActionModeBar(
                 }
             }
 
+            // Compress or Extract
+            if (isInsideArchive) {
+                IconButton(onClick = onExtract) {
+                    Icon(
+                        imageVector = Icons.Default.Unarchive,
+                        contentDescription = stringResource(R.string.action_extract),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            } else {
+                IconButton(onClick = onCompress) {
+                    Icon(
+                        imageVector = Icons.Default.Archive,
+                        contentDescription = stringResource(R.string.action_compress),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
             // Delete
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.selection_delete),
-                    tint = MaterialTheme.colorScheme.error
-                )
+            if (!isInsideArchive) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.selection_delete),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }

@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.scout.files.core.model.ArchiveUri
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
 import dev.scout.files.feature.explorer.ExplorerViewModel
@@ -240,6 +241,62 @@ fun ExplorerScreen(
             }
         )
     }
+
+    // Operations Queue Sheet
+    if (uiState.isOperationsSheetVisible) {
+        OperationsQueueSheet(
+            tasks = uiState.operationsTasks,
+            onPause = { taskId -> viewModel.handleIntent(ExplorerIntent.PauseOperation(taskId)) },
+            onResume = { taskId -> viewModel.handleIntent(ExplorerIntent.ResumeOperation(taskId)) },
+            onCancel = { taskId -> viewModel.handleIntent(ExplorerIntent.CancelOperation(taskId)) },
+            onClearFinished = { viewModel.handleIntent(ExplorerIntent.ClearCompletedOperations) },
+            onDismiss = { viewModel.handleIntent(ExplorerIntent.ToggleOperationsSheet(false)) }
+        )
+    }
+
+    // File Conflict Dialog
+    uiState.activeConflict?.let { conflict ->
+        FileConflictDialog(
+            fileName = conflict.targetUri.name,
+            onDecision = { decision ->
+                viewModel.handleIntent(ExplorerIntent.ResolveConflict(decision))
+            }
+        )
+    }
+
+    // Background Password Dialog
+    uiState.activePasswordPrompt?.let { prompt ->
+        ArchivePasswordDialog(
+            archiveName = prompt.archiveUri.name,
+            isWrongPassword = prompt.isWrongPassword,
+            onDismiss = { viewModel.handleIntent(ExplorerIntent.SubmitArchivePassword(null)) },
+            onSubmit = { pass -> viewModel.handleIntent(ExplorerIntent.SubmitArchivePassword(pass)) }
+        )
+    }
+
+    // Direct Browser / QuickLook Password Dialog
+    if (uiState.isPasswordDialogVisible) {
+        ArchivePasswordDialog(
+            archiveName = uiState.pendingPasswordUri?.name,
+            isWrongPassword = uiState.passwordError != null,
+            onDismiss = { viewModel.handleIntent(ExplorerIntent.DismissPasswordDialog) },
+            onSubmit = { pass ->
+                viewModel.handleIntent(ExplorerIntent.SubmitDirectArchivePassword(pass, activePaneIndex))
+            }
+        )
+    }
+
+    // Compress Dialog
+    uiState.compressDialogSources?.let { sources ->
+        val defaultName = sources.firstOrNull()?.name ?: "archive.zip"
+        CompressDialog(
+            initialName = defaultName,
+            onDismiss = { viewModel.handleIntent(ExplorerIntent.HideCompressDialog) },
+            onConfirm = { name, isZip, password ->
+                viewModel.handleIntent(ExplorerIntent.CompressSelected(name, isZip, password, activePaneIndex))
+            }
+        )
+    }
 }
 
 @Composable
@@ -262,10 +319,12 @@ private fun ExplorerMainScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             val hasSelection = activePane.selectedUris.isNotEmpty()
+            val isInsideArchive = ArchiveUri.isArchiveUri(activeTab?.currentUri ?: VfsUri.ROOT_FILE)
             if (hasSelection) {
                 SelectionActionModeBar(
                     selectedCount = activePane.selectedUris.size,
                     isDualPane = uiState.isDualPaneEnabled,
+                    isInsideArchive = isInsideArchive,
                     onClearSelection = {
                         onIntent(ExplorerIntent.ClearSelection(activePaneIndex))
                     },
@@ -293,6 +352,24 @@ private fun ExplorerMainScaffold(
                         val selectedUri = activePane.selectedUris.firstOrNull()
                         val node = activePane.nodes.find { it.uri == selectedUri }
                         if (node != null) onIntent(ExplorerIntent.OpenQuickLook(node))
+                    },
+                    onCompress = {
+                        onIntent(ExplorerIntent.ShowCompressDialog(activePane.selectedUris.toList()))
+                    },
+                    onExtract = {
+                        val dest = if (uiState.isDualPaneEnabled && uiState.secondaryPane != null) {
+                            val otherIndex = if (activePaneIndex == 0) 1 else 0
+                            val otherPane = if (otherIndex == 1) uiState.secondaryPane else uiState.primaryPane
+                            otherPane?.activeTab?.currentUri ?: VfsUri("file:///storage/emulated/0/Download")
+                        } else {
+                            val curUri = activeTab?.currentUri ?: VfsUri.ROOT_FILE
+                            val srcUri = ArchiveUri.extractSourceUri(curUri)
+                            srcUri?.parent ?: VfsUri("file:///storage/emulated/0/Download")
+                        }
+                        activePane.selectedUris.forEach { selUri ->
+                            onIntent(ExplorerIntent.ExtractArchive(selUri, dest))
+                        }
+                        onIntent(ExplorerIntent.ClearSelection(activePaneIndex))
                     }
                 )
             } else {
@@ -314,7 +391,9 @@ private fun ExplorerMainScaffold(
                     onToggleShowHiddenFiles = { onIntent(ExplorerIntent.ToggleShowHiddenFiles) },
                     onToggleDualPane = { onIntent(ExplorerIntent.ToggleDualPane) },
                     onSetSearchQuery = { query -> onIntent(ExplorerIntent.SetSearchQuery(query, activePaneIndex)) },
-                    onCreateDirectory = onCreateDirectory
+                    onCreateDirectory = onCreateDirectory,
+                    activeOperationsCount = uiState.activeOperationsCount,
+                    onOpenOperationsQueue = { onIntent(ExplorerIntent.ToggleOperationsSheet(true)) }
                 )
             }
         },
@@ -493,6 +572,8 @@ fun ExplorerPaneContent(
                                         onIntent(ExplorerIntent.ToggleSelectNode(node.uri, paneIndex))
                                     } else if (node.isDirectory) {
                                         onIntent(ExplorerIntent.NavigateTo(node.uri, paneIndex))
+                                    } else if (ArchiveUri.isSupportedArchiveFile(node.name)) {
+                                        onIntent(ExplorerIntent.NavigateTo(ArchiveUri.build(node.uri, "/"), paneIndex))
                                     } else {
                                         onIntent(ExplorerIntent.OpenQuickLook(node))
                                     }
@@ -530,6 +611,8 @@ fun ExplorerPaneContent(
                                         onIntent(ExplorerIntent.ToggleSelectNode(node.uri, paneIndex))
                                     } else if (node.isDirectory) {
                                         onIntent(ExplorerIntent.NavigateTo(node.uri, paneIndex))
+                                    } else if (ArchiveUri.isSupportedArchiveFile(node.name)) {
+                                        onIntent(ExplorerIntent.NavigateTo(ArchiveUri.build(node.uri, "/"), paneIndex))
                                     } else {
                                         onIntent(ExplorerIntent.OpenQuickLook(node))
                                     }

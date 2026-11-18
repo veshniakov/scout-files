@@ -23,10 +23,13 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -69,6 +72,8 @@ fun ExplorerTopBar(
     onToggleDualPane: () -> Unit,
     onSetSearchQuery: (String) -> Unit,
     onCreateDirectory: () -> Unit,
+    activeOperationsCount: Int = 0,
+    onOpenOperationsQueue: () -> Unit = {},
     showNavigationIcon: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -127,6 +132,27 @@ fun ExplorerTopBar(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = stringResource(R.string.topbar_search)
+                    )
+                }
+            }
+
+            // Operations Queue Button
+            IconButton(onClick = onOpenOperationsQueue) {
+                if (activeOperationsCount > 0) {
+                    BadgedBox(
+                        badge = {
+                            Badge { Text("$activeOperationsCount") }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = stringResource(R.string.operations_btn_tooltip)
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = stringResource(R.string.operations_btn_tooltip)
                     )
                 }
             }

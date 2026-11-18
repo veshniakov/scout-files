@@ -11,6 +11,7 @@ data class VfsUri(val raw: String) : Comparable<VfsUri> {
     val scheme: String
     val host: String?
     val port: Int?
+    val authority: String?
     val path: String
     val query: String?
 
@@ -20,7 +21,8 @@ data class VfsUri(val raw: String) : Comparable<VfsUri> {
             scheme = parsedUri.scheme.lowercase()
             host = parsedUri.host
             port = if (parsedUri.port != -1) parsedUri.port else null
-            path = parsedUri.path.ifEmpty { "/" }
+            authority = parsedUri.rawAuthority ?: parsedUri.authority
+            path = parsedUri.path?.ifEmpty { "/" } ?: "/"
             query = parsedUri.query
         } else {
             // Fallback manual parser for non-standard URI strings like "file:///storage/emulated/0"
@@ -30,12 +32,14 @@ data class VfsUri(val raw: String) : Comparable<VfsUri> {
                 val remainder = raw.substring(schemeDelim + 3)
                 val slashIndex = remainder.indexOf('/')
                 if (slashIndex != -1) {
-                    val authority = remainder.substring(0, slashIndex)
-                    host = authority.substringBefore(':').takeIf { it.isNotEmpty() }
-                    port = authority.substringAfter(':', "").toIntOrNull()
+                    val auth = remainder.substring(0, slashIndex)
+                    authority = auth.takeIf { it.isNotEmpty() }
+                    host = auth.substringBefore(':').takeIf { it.isNotEmpty() }
+                    port = auth.substringAfter(':', "").toIntOrNull()
                     path = "/" + remainder.substring(slashIndex + 1).substringBefore('?')
                     query = remainder.substringAfter('?', "").takeIf { it.isNotEmpty() }
                 } else {
+                    authority = remainder.takeIf { it.isNotEmpty() }
                     host = remainder.substringBefore(':').takeIf { it.isNotEmpty() }
                     port = remainder.substringAfter(':', "").toIntOrNull()
                     path = "/"
@@ -44,12 +48,14 @@ data class VfsUri(val raw: String) : Comparable<VfsUri> {
             } else if (raw.contains(':')) {
                 scheme = raw.substringBefore(':').lowercase()
                 val remainder = raw.substringAfter(':')
+                authority = null
                 host = null
                 port = null
                 path = if (remainder.startsWith('/')) remainder else "/$remainder"
                 query = null
             } else {
                 scheme = "file"
+                authority = null
                 host = null
                 port = null
                 path = if (raw.startsWith('/')) raw else "/$raw"
@@ -79,14 +85,14 @@ data class VfsUri(val raw: String) : Comparable<VfsUri> {
             if (segments.isEmpty() || path == "/") return null
             val newSegments = segments.dropLast(1)
             val newPath = if (newSegments.isEmpty()) "/" else "/" + newSegments.joinToString("/")
-            val authority = buildString {
+            val auth = authority ?: buildString {
                 if (!host.isNullOrEmpty()) {
                     append(host)
                     if (port != null) append(":$port")
                 }
             }
-            val newRaw = if (authority.isNotEmpty()) {
-                "$scheme://$authority$newPath"
+            val newRaw = if (auth.isNotEmpty()) {
+                "$scheme://$auth$newPath"
             } else {
                 "$scheme://$newPath"
             }
@@ -101,14 +107,14 @@ data class VfsUri(val raw: String) : Comparable<VfsUri> {
         if (trimmed.isEmpty()) return this
         val separator = if (path.endsWith("/")) "" else "/"
         val newPath = "$path$separator$trimmed"
-        val authority = buildString {
+        val auth = authority ?: buildString {
             if (!host.isNullOrEmpty()) {
                 append(host)
                 if (port != null) append(":$port")
             }
         }
-        val newRaw = if (authority.isNotEmpty()) {
-            "$scheme://$authority$newPath"
+        val newRaw = if (auth.isNotEmpty()) {
+            "$scheme://$auth$newPath"
         } else {
             "$scheme://$newPath"
         }

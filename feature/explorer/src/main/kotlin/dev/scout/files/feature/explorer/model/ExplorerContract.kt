@@ -6,6 +6,11 @@ import dev.scout.files.core.model.StorageVolume
 import dev.scout.files.core.model.TagColor
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
+import dev.scout.files.core.operations.model.ArchivePasswordPrompt
+import dev.scout.files.core.operations.model.ConflictDecision
+import dev.scout.files.core.operations.model.FileConflictPrompt
+import dev.scout.files.core.operations.model.FileOperationTask
+import dev.scout.files.core.operations.model.OperationStatus
 import dev.scout.files.provider.local.StandardDirectory
 import java.util.UUID
 
@@ -95,8 +100,25 @@ data class ExplorerUiState(
     val standardDirectories: List<StandardDirectory> = emptyList(),
     val bookmarks: List<Bookmark> = emptyList(),
     val quickLook: QuickLookState? = null,
-    val hasStoragePermission: Boolean = true
+    val hasStoragePermission: Boolean = true,
+    val operationsTasks: List<FileOperationTask> = emptyList(),
+    val activeConflict: FileConflictPrompt? = null,
+    val activePasswordPrompt: ArchivePasswordPrompt? = null,
+    val isOperationsSheetVisible: Boolean = false,
+    val compressDialogSources: List<VfsUri>? = null,
+    val pendingPasswordUri: VfsUri? = null,
+    val isPasswordDialogVisible: Boolean = false,
+    val passwordError: String? = null
 ) {
+    val activeOperationsCount: Int
+        get() = operationsTasks.count {
+            it.status == OperationStatus.RUNNING ||
+                it.status == OperationStatus.PAUSED ||
+                it.status == OperationStatus.WAITING_CONFLICT ||
+                it.status == OperationStatus.WAITING_PASSWORD ||
+                it.status == OperationStatus.QUEUED
+        }
+
     fun visibleNodesForPane(paneIndex: Int = 0): List<VfsNode> {
         val pane = if (paneIndex == 1 && secondaryPane != null) secondaryPane else primaryPane
         return pane.getVisibleNodes(showHiddenFiles, sortConfig)
@@ -130,6 +152,21 @@ sealed interface ExplorerIntent {
     data class AddBookmark(val uri: VfsUri, val title: String) : ExplorerIntent
     data class RemoveBookmark(val uri: VfsUri) : ExplorerIntent
     data object RefreshVolumesAndPermissions : ExplorerIntent
+
+    // Operations and Archive Intents
+    data class ShowCompressDialog(val sources: List<VfsUri>) : ExplorerIntent
+    data object HideCompressDialog : ExplorerIntent
+    data class CompressSelected(val name: String, val isZip: Boolean, val password: String?, val paneIndex: Int = 0) : ExplorerIntent
+    data class ExtractArchive(val archiveUri: VfsUri, val destinationDir: VfsUri) : ExplorerIntent
+    data class ToggleOperationsSheet(val visible: Boolean) : ExplorerIntent
+    data class PauseOperation(val taskId: String) : ExplorerIntent
+    data class ResumeOperation(val taskId: String) : ExplorerIntent
+    data class CancelOperation(val taskId: String) : ExplorerIntent
+    data object ClearCompletedOperations : ExplorerIntent
+    data class ResolveConflict(val decision: ConflictDecision) : ExplorerIntent
+    data class SubmitArchivePassword(val password: String?) : ExplorerIntent
+    data class SubmitDirectArchivePassword(val password: String, val paneIndex: Int = 0) : ExplorerIntent
+    data object DismissPasswordDialog : ExplorerIntent
 }
 
 sealed interface ExplorerEffect {

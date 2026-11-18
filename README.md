@@ -28,12 +28,14 @@ Scout построен на базе чистой модульной архит�
 Scout/
 ├── app/                        # Точка входа приложения (:app), DI граф, MainActivity
 ├── core/
-│   ├── model/                  # Чистый Kotlin/JVM модуль доменных моделей (VfsUri, VfsNode, FileTag, StorageVolume, VfsException)
-│   ├── vfs/                    # Android Library: ядро виртуальной файловой системы (VfsRouter, FileSystemProvider, RandomAccessContent)
+│   ├── model/                  # Чистый Kotlin/JVM модуль доменных моделей (VfsUri, ArchiveUri, VfsNode, FileTag, StorageVolume, VfsException)
+│   ├── vfs/                    # Android Library: ядро виртуальной файловой системы (VfsRouter, FileSystemProvider, RandomAccessContent, ArchivePasswordStore)
+│   ├── operations/             # Фоновые файловые операции (:core:operations): Foreground Service, очередь задач, скорость/прогресс, конфликты
 │   ├── database/               # Room + KSP: закладки избранного (BookmarkEntity) и цветовые теги Finder (FileTagCrossRefEntity)
 │   └── designsystem/           # Дизайн-система (Material 3, Dynamic Color, ScoutPathBar)
 ├── providers/                  # Провайдеры протоколов (реализуют FileSystemProvider и подключаются через @Binds @IntoSet)
 │   ├── local/                  # Локальная файловая система (file://) и Storage Access Framework (content://, SAF)
+│   ├── archive/                # Виртуальные архивы (:providers:archive, archive://): .zip, .rar, .7z, .tar.*, пароли AES-256
 │   ├── sftp/                   # SSH File Transfer Protocol (в разработке)
 │   ├── smb/                    # SMB / Samba сетевые шары (в разработке)
 │   ├── webdav/                 # Nextcloud, ownCloud, WebDAV (в разработке)
@@ -41,7 +43,7 @@ Scout/
 ├── viewers/                    # Встроенные просмотрщики файлов
 │   └── ...
 └── feature/                    # Экранные фичи
-    └── explorer/               # Главный экран проводника: MVI, вкладки, двухпанельный режим, сайдбар Finder/Nautilus, Quick Look
+    └── explorer/               # Главный экран проводника: MVI, вкладки, двухпанельный режим, сайдбар Finder/Nautilus, Quick Look, архивы и очередь операций
 ```
 
 ### Принципы изоляции модулей
@@ -58,13 +60,13 @@ Scout/
 
 - [x] **`file://`** — локальная файловая система (POSIX / Linux / Android)
 - [x] **`content://`** — Android Storage Access Framework (SAF / DocumentFile)
+- [x] **`archive://`** — Виртуальные архивы: ZIP, RAR (RAR4/RAR5), 7z, TAR, TAR.GZ, TAR.BZ2, TAR.XZ с поддержкой паролей
 - [ ] **`smb://`** — Samba / Windows Network Share
 - [ ] **`sftp://`** — SSH File Transfer Protocol
 - [ ] **`ftp://` / `ftps://`** — File Transfer Protocol
 - [ ] **`webdav://`** — WebDAV (Nextcloud / ownCloud / Yandex Disk)
 - [ ] **`gdrive://`** — Google Drive REST API
 - [ ] **`usb://`** — Прямой доступ к USB OTG носителям через Android USB Host API
-- [ ] **`archive://`** — Просмотр zip / tar / 7z как виртуальных каталогов
 
 ---
 
@@ -82,9 +84,16 @@ Scout/
   - [x] Модуль `:core:database`: Room + KSP, `BookmarkDao`, `FileTagDao`, `MetadataRepository`.
   - [x] Модуль `:feature:explorer`: MVI архитектура, вкладки (Tabs), двухпанельный режим (Dual-Pane), боковая панель Finder/Nautilus, список и сетка, Quick Look и цветовые теги.
   - [x] Интеграция в `:app` и полное двуязычное покрытие (RU / EN).
-- [ ] **Этап 3: Сетевые протоколы (NAS & Clouds)**
+- [x] **Этап 3: Фоновые операции и виртуальные архивы (v0.3.0-alpha)**
+  - [x] Модуль `:core:operations`: Диспетчер `FileOperationManager`, Foreground Service (`dataSync`), отслеживание скорости передачи и байт-прогресса, пауза, возобновление и отмена.
+  - [x] Интерактивное разрешение конфликтов файлов (`OVERWRITE`, `SKIP`, `KEEP_BOTH`) с опцией «Применить ко всем».
+  - [x] Модуль `:providers:archive`: Полноценная виртуальная файловая система `archive://` для ZIP, RAR, 7z, TAR, TAR.GZ, TAR.BZ2, TAR.XZ без полной распаковки на диск.
+  - [x] Поддержка защищенных паролем архивов (AES-256 ZIP, RAR, 7z) и сессионный потокобезопасный `ArchivePasswordStore`.
+  - [x] Создание архивов `.zip` (с опциональным шифрованием AES-256) и `.tar.gz`.
+  - [x] Интеграция в `:feature:explorer`: прозрачный переход в архив как в папку, модальные диалоги ввода пароля и разрешения конфликтов, `OperationsQueueSheet` и действие сжатия/распаковки.
+- [ ] **Этап 4: Сетевые протоколы (NAS & Clouds)**
   - [ ] Интеграция SMB, SFTP, WebDAV, Google Drive.
-- [ ] **Этап 4: Встроенные просмотрщики (Viewers)**
+- [ ] **Этап 5: Встроенные просмотрщики (Viewers)**
   - [ ] Code Editor, Markdown, PDF, Media Player с поддержкой seekable random access.
 
 ---

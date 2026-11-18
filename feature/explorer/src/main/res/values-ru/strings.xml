@@ -121,4 +121,53 @@
     <string name="bookmark_removed">Закладка удалена</string>
     <string name="error_prefix">Ошибка: %1$s</string>
     <string name="error_reading_directory">Ошибка чтения каталога</string>
+
+    <!-- Operations Queue -->
+    <string name="operations_queue_title">Очередь операций</string>
+    <string name="operations_queue_empty">Очередь операций пуста</string>
+    <string name="operations_clear_completed">Очистить завершенные</string>
+    <string name="operations_pause">Пауза</string>
+    <string name="operations_resume">Продолжить</string>
+    <string name="operations_cancel">Отмена</string>
+    <string name="operations_copy">Копирование</string>
+    <string name="operations_move">Перемещение</string>
+    <string name="operations_delete">Удаление</string>
+    <string name="operations_compress">Сжатие</string>
+    <string name="operations_extract">Распаковка</string>
+    <string name="operations_status_running">Выполняется</string>
+    <string name="operations_status_paused">Приостановлено</string>
+    <string name="operations_status_waiting_conflict">Конфликт</string>
+    <string name="operations_status_waiting_password">Требуется пароль</string>
+    <string name="operations_status_completed">Завершено</string>
+    <string name="operations_status_failed">Ошибка</string>
+    <string name="operations_status_cancelled">Отменено</string>
+    <string name="operations_btn_tooltip">Файловые операции</string>
+
+    <!-- Conflicts -->
+    <string name="conflict_title">Конфликт файлов</string>
+    <string name="conflict_message">Файл «%1$s» уже существует в папке назначения.</string>
+    <string name="conflict_action_overwrite">Заменить</string>
+    <string name="conflict_action_skip">Пропустить</string>
+    <string name="conflict_action_keep_both">Сохранить оба</string>
+    <string name="conflict_apply_to_all">Применить ко всем оставшимся</string>
+
+    <!-- Archive & Passwords -->
+    <string name="archive_password_title">Пароль архива</string>
+    <string name="archive_password_message">Этот архив защищен паролем. Введите пароль для продолжения:</string>
+    <string name="archive_password_placeholder">Пароль</string>
+    <string name="archive_password_wrong">Неверный пароль. Попробуйте снова.</string>
+    <string name="archive_password_submit">Открыть</string>
+    <string name="archive_password_show">Показать пароль</string>
+    <string name="archive_password_hide">Скрыть пароль</string>
+
+    <!-- Compression Dialog & Actions -->
+    <string name="dialog_compress_title">Создать архив</string>
+    <string name="dialog_compress_name_label">Имя архива:</string>
+    <string name="dialog_compress_format_label">Формат:</string>
+    <string name="dialog_compress_password_label">Пароль (AES-256, необязательно):</string>
+    <string name="dialog_compress_btn">Сжать</string>
+    <string name="action_compress">Сжать</string>
+    <string name="action_extract">Извлечь</string>
+    <string name="action_extract_current">Извлечь сюда</string>
+    <string name="action_extract_adjacent">Извлечь во 2-ю панель</string>
 </resources>

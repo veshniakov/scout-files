@@ -121,4 +121,53 @@
     <string name="bookmark_removed">Bookmark removed</string>
     <string name="error_prefix">Error: %1$s</string>
     <string name="error_reading_directory">Error reading directory</string>
+
+    <!-- Operations Queue -->
+    <string name="operations_queue_title">Operations Queue</string>
+    <string name="operations_queue_empty">No operations in queue</string>
+    <string name="operations_clear_completed">Clear Finished</string>
+    <string name="operations_pause">Pause</string>
+    <string name="operations_resume">Resume</string>
+    <string name="operations_cancel">Cancel</string>
+    <string name="operations_copy">Copying</string>
+    <string name="operations_move">Moving</string>
+    <string name="operations_delete">Deleting</string>
+    <string name="operations_compress">Compressing</string>
+    <string name="operations_extract">Extracting</string>
+    <string name="operations_status_running">Running</string>
+    <string name="operations_status_paused">Paused</string>
+    <string name="operations_status_waiting_conflict">Conflict</string>
+    <string name="operations_status_waiting_password">Password Required</string>
+    <string name="operations_status_completed">Completed</string>
+    <string name="operations_status_failed">Failed</string>
+    <string name="operations_status_cancelled">Cancelled</string>
+    <string name="operations_btn_tooltip">File operations</string>
+
+    <!-- Conflicts -->
+    <string name="conflict_title">File Conflict</string>
+    <string name="conflict_message">File \'%1$s\' already exists in the destination folder.</string>
+    <string name="conflict_action_overwrite">Replace</string>
+    <string name="conflict_action_skip">Skip</string>
+    <string name="conflict_action_keep_both">Keep Both</string>
+    <string name="conflict_apply_to_all">Apply to all remaining</string>
+
+    <!-- Archive & Passwords -->
+    <string name="archive_password_title">Archive Password</string>
+    <string name="archive_password_message">This archive is password-protected. Enter the password to continue:</string>
+    <string name="archive_password_placeholder">Password</string>
+    <string name="archive_password_wrong">Incorrect password. Please try again.</string>
+    <string name="archive_password_submit">Unlock</string>
+    <string name="archive_password_show">Show password</string>
+    <string name="archive_password_hide">Hide password</string>
+
+    <!-- Compression Dialog & Actions -->
+    <string name="dialog_compress_title">Create Archive</string>
+    <string name="dialog_compress_name_label">Archive name:</string>
+    <string name="dialog_compress_format_label">Format:</string>
+    <string name="dialog_compress_password_label">Password (AES-256, optional):</string>
+    <string name="dialog_compress_btn">Compress</string>
+    <string name="action_compress">Compress</string>
+    <string name="action_extract">Extract</string>
+    <string name="action_extract_current">Extract here</string>
+    <string name="action_extract_adjacent">Extract to other pane</string>
 </resources>

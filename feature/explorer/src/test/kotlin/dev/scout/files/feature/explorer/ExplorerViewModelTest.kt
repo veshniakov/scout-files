@@ -2,10 +2,13 @@ package dev.scout.files.feature.explorer
 
 import android.content.Context
 import dev.scout.files.core.database.repository.MetadataRepository
+import dev.scout.files.core.model.ArchiveUri
 import dev.scout.files.core.model.StorageVolume
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
 import dev.scout.files.core.model.VolumeType
+import dev.scout.files.core.operations.FileOperationManager
+import dev.scout.files.core.vfs.ArchivePasswordStore
 import dev.scout.files.core.vfs.VfsRouter
 import dev.scout.files.feature.explorer.model.ExplorerIntent
 import dev.scout.files.feature.explorer.model.SortConfig
@@ -14,9 +17,11 @@ import dev.scout.files.feature.explorer.model.SortField
 import dev.scout.files.provider.local.LocalStorageVolumeManager
 import dev.scout.files.provider.local.StandardDirectory
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -37,6 +42,8 @@ class ExplorerViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private val vfsRouter: VfsRouter = mockk(relaxed = true)
+    private val fileOperationManager: FileOperationManager = mockk(relaxed = true)
+    private val archivePasswordStore: ArchivePasswordStore = mockk(relaxed = true)
     private val volumeManager: LocalStorageVolumeManager = mockk(relaxed = true)
     private val metadataRepository: MetadataRepository = mockk(relaxed = true)
     private val context: Context = mockk(relaxed = true)
@@ -105,6 +112,15 @@ class ExplorerViewModelTest {
         coEvery { metadataRepository.getBookmarks() } returns flowOf(emptyList())
         coEvery { metadataRepository.getTagsForUris(any()) } returns flowOf(emptyMap())
         coEvery { vfsRouter.listDirectory(any()) } returns sampleNodes
+
+        every { fileOperationManager.tasks } returns MutableStateFlow(emptyList())
+        every { fileOperationManager.activeConflict } returns MutableStateFlow(null)
+        every { fileOperationManager.activePasswordPrompt } returns MutableStateFlow(null)
+        every { fileOperationManager.enqueueDelete(any()) } returns "task_del_1"
+        every { fileOperationManager.enqueueCopy(any(), any()) } returns "task_copy_1"
+        every { fileOperationManager.enqueueMove(any(), any()) } returns "task_move_1"
+        every { fileOperationManager.enqueueCompress(any(), any(), any(), any()) } returns "task_comp_1"
+        every { fileOperationManager.enqueueExtract(any(), any()) } returns "task_ext_1"
     }
 
     @After
@@ -115,11 +131,56 @@ class ExplorerViewModelTest {
     private fun createViewModel(): ExplorerViewModel {
         return ExplorerViewModel(
             vfsRouter = vfsRouter,
+            fileOperationManager = fileOperationManager,
+            archivePasswordStore = archivePasswordStore,
             volumeManager = volumeManager,
             metadataRepository = metadataRepository,
             context = context,
             ioDispatcher = testDispatcher
         )
+    }
+
+    @Test
+    fun testArchiveFileNavigationOpensAsArchiveDirectory() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val zipFileUri = rootUri.resolve("archive.zip")
+        val archiveExpectedUri = ArchiveUri.build(zipFileUri, "/")
+        coEvery { vfsRouter.listDirectory(archiveExpectedUri) } returns listOf(
+            VfsNode(
+                uri = ArchiveUri.build(zipFileUri, "content.txt"),
+                name = "content.txt",
+                isDirectory = false,
+                sizeBytes = 120L
+            )
+        )
+
+        viewModel.handleIntent(ExplorerIntent.NavigateTo(zipFileUri))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        val activeTab = state.primaryPane.activeTab
+        assertNotNull(activeTab)
+        assertEquals(archiveExpectedUri, activeTab?.currentUri)
+        assertEquals(1, state.primaryPane.nodes.size)
+        assertEquals("content.txt", state.primaryPane.nodes.first().name)
+    }
+
+    @Test
+    fun testDeleteSelectedEnqueuesOperation() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val file1 = rootUri.resolve("notes.txt")
+        viewModel.handleIntent(ExplorerIntent.ToggleSelectNode(file1))
+        advanceUntilIdle()
+
+        viewModel.handleIntent(ExplorerIntent.DeleteSelected(0))
+        advanceUntilIdle()
+
+        io.mockk.verify { fileOperationManager.enqueueDelete(listOf(file1)) }
+        assertTrue(viewModel.uiState.value.primaryPane.selectedUris.isEmpty())
     }
 
     @Test

@@ -39,6 +39,7 @@ dependencies {
     api(project(":core:vfs"))
     api(project(":core:database"))
     api(project(":core:designsystem"))
+    api(project(":core:operations"))
     api(project(":providers:local"))
 
     implementation(libs.androidx.core.ktx)

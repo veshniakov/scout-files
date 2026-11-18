@@ -6,10 +6,15 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.scout.files.core.database.repository.MetadataRepository
+import dev.scout.files.core.model.ArchiveUri
 import dev.scout.files.core.model.FileTag
 import dev.scout.files.core.model.TagColor
+import dev.scout.files.core.model.VfsException
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
+import dev.scout.files.core.operations.FileOperationManager
+import dev.scout.files.core.operations.model.OperationStatus
+import dev.scout.files.core.vfs.ArchivePasswordStore
 import dev.scout.files.core.vfs.VfsRouter
 import dev.scout.files.core.vfs.di.IoDispatcher
 import dev.scout.files.feature.explorer.R
@@ -41,6 +46,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ExplorerViewModel @Inject constructor(
     private val vfsRouter: VfsRouter,
+    private val fileOperationManager: FileOperationManager,
+    private val archivePasswordStore: ArchivePasswordStore,
     private val volumeManager: LocalStorageVolumeManager,
     private val metadataRepository: MetadataRepository,
     @ApplicationContext private val context: Context,
@@ -94,6 +101,32 @@ class ExplorerViewModel @Inject constructor(
                 }
             }
 
+            // Observe background operations queue
+            launch {
+                fileOperationManager.tasks.collect { tasks ->
+                    val hadCompleted = _uiState.value.operationsTasks.any { it.status == OperationStatus.COMPLETED }
+                    val hasCompleted = tasks.any { it.status == OperationStatus.COMPLETED }
+                    _uiState.update { it.copy(operationsTasks = tasks) }
+                    if (!hadCompleted && hasCompleted) {
+                        refreshCurrentPanes()
+                    }
+                }
+            }
+
+            // Observe conflict prompt
+            launch {
+                fileOperationManager.activeConflict.collect { conflict ->
+                    _uiState.update { it.copy(activeConflict = conflict) }
+                }
+            }
+
+            // Observe background password prompt
+            launch {
+                fileOperationManager.activePasswordPrompt.collect { prompt ->
+                    _uiState.update { it.copy(activePasswordPrompt = prompt) }
+                }
+            }
+
             loadDirectory(initialUri, paneIndex = 0)
         }
     }
@@ -132,6 +165,23 @@ class ExplorerViewModel @Inject constructor(
             is ExplorerIntent.AddBookmark -> addBookmark(intent.uri, intent.title)
             is ExplorerIntent.RemoveBookmark -> removeBookmark(intent.uri)
             is ExplorerIntent.RefreshVolumesAndPermissions -> refreshVolumesAndPermissions()
+
+            // Operation intents
+            is ExplorerIntent.ShowCompressDialog -> _uiState.update { it.copy(compressDialogSources = intent.sources) }
+            is ExplorerIntent.HideCompressDialog -> _uiState.update { it.copy(compressDialogSources = null) }
+            is ExplorerIntent.CompressSelected -> compressSelected(intent.name, intent.isZip, intent.password, intent.paneIndex)
+            is ExplorerIntent.ExtractArchive -> extractArchive(intent.archiveUri, intent.destinationDir)
+            is ExplorerIntent.ToggleOperationsSheet -> _uiState.update { it.copy(isOperationsSheetVisible = intent.visible) }
+            is ExplorerIntent.PauseOperation -> fileOperationManager.pause(intent.taskId)
+            is ExplorerIntent.ResumeOperation -> fileOperationManager.resume(intent.taskId)
+            is ExplorerIntent.CancelOperation -> fileOperationManager.cancel(intent.taskId)
+            is ExplorerIntent.ClearCompletedOperations -> fileOperationManager.clearTerminalTasks()
+            is ExplorerIntent.ResolveConflict -> fileOperationManager.resolveConflict(intent.decision)
+            is ExplorerIntent.SubmitArchivePassword -> fileOperationManager.submitPassword(intent.password)
+            is ExplorerIntent.SubmitDirectArchivePassword -> submitDirectArchivePassword(intent.password, intent.paneIndex)
+            is ExplorerIntent.DismissPasswordDialog -> _uiState.update {
+                it.copy(isPasswordDialogVisible = false, passwordError = null, pendingPasswordUri = null)
+            }
         }
     }
 
@@ -152,6 +202,21 @@ class ExplorerViewModel @Inject constructor(
                         error = null
                     )
                 }
+            } catch (e: VfsException.AuthenticationRequired) {
+                updatePane(paneIndex) { pane ->
+                    pane.copy(isLoading = false, error = null)
+                }
+                val isWrong = archivePasswordStore.hasPassword(uri)
+                val errMsg = if (isWrong) {
+                    runCatching { context.getString(R.string.archive_password_wrong) }.getOrDefault("Incorrect password")
+                } else null
+                _uiState.update {
+                    it.copy(
+                        pendingPasswordUri = uri,
+                        isPasswordDialogVisible = true,
+                        passwordError = errMsg
+                    )
+                }
             } catch (e: Exception) {
                 val errorMsg = e.localizedMessage ?: runCatching { context.getString(R.string.error_reading_directory) }.getOrDefault("Error reading directory")
                 updatePane(paneIndex) { pane ->
@@ -168,14 +233,25 @@ class ExplorerViewModel @Inject constructor(
     }
 
     private fun navigateTo(uri: VfsUri, paneIndex: Int) {
+        val targetUri = if (!ArchiveUri.isArchiveUri(uri) && ArchiveUri.isSupportedArchiveFile(uri.name)) {
+            ArchiveUri.build(uri, "/")
+        } else {
+            uri
+        }
+
         val pane = getPane(paneIndex)
         val activeTab = pane.activeTab ?: return
 
         val rootTitle = runCatching { context.getString(R.string.tab_root) }.getOrDefault("Root").ifBlank { "Root" }
         val newBackStack = activeTab.backStack + activeTab.currentUri
+        val title = if (ArchiveUri.isArchiveUri(targetUri)) {
+            ArchiveUri.extractSourceUri(targetUri)?.name ?: targetUri.name
+        } else {
+            targetUri.name.ifEmpty { rootTitle }
+        }
         val updatedTab = activeTab.copy(
-            currentUri = uri,
-            title = uri.name.ifEmpty { rootTitle },
+            currentUri = targetUri,
+            title = title,
             backStack = newBackStack,
             forwardStack = emptyList()
         )
@@ -183,7 +259,7 @@ class ExplorerViewModel @Inject constructor(
         updatePane(paneIndex) { p ->
             p.copy(tabs = p.tabs.map { if (it.id == updatedTab.id) updatedTab else it })
         }
-        loadDirectory(uri, paneIndex)
+        loadDirectory(targetUri, paneIndex)
     }
 
     private fun navigateBack(paneIndex: Int) {
@@ -363,16 +439,12 @@ class ExplorerViewModel @Inject constructor(
         val pane = getPane(paneIndex)
         val selected = pane.selectedUris.toList()
         if (selected.isEmpty()) return
-        val activeTab = pane.activeTab ?: return
 
+        fileOperationManager.enqueueDelete(selected)
+        clearSelection(paneIndex)
         viewModelScope.launch {
-            var count = 0
-            for (uri in selected) {
-                if (vfsRouter.delete(uri, recursive = true)) count++
-            }
-            val msg = runCatching { context.getString(R.string.items_deleted, count) }.getOrDefault("Deleted items: $count")
+            val msg = runCatching { context.getString(R.string.items_deleted, selected.size) }.getOrDefault("Deleting items: ${selected.size}")
             _effects.send(ExplorerEffect.ShowSnackbar(msg))
-            loadDirectory(activeTab.currentUri, paneIndex)
         }
     }
 
@@ -389,22 +461,64 @@ class ExplorerViewModel @Inject constructor(
         val selected = sourcePane.selectedUris.toList()
         if (selected.isEmpty()) return
 
+        if (move) {
+            fileOperationManager.enqueueMove(selected, targetUri)
+        } else {
+            fileOperationManager.enqueueCopy(selected, targetUri)
+        }
+
+        clearSelection(sourceIndex)
         viewModelScope.launch {
-            var successCount = 0
-            for (src in selected) {
-                val dst = targetUri.resolve(src.name)
-                val ok = if (move) vfsRouter.rename(src, dst) else vfsRouter.copy(src, dst)
-                if (ok) successCount++
-            }
             val msg = if (move) {
-                runCatching { context.getString(R.string.items_moved, successCount) }.getOrDefault("Moved items: $successCount")
+                runCatching { context.getString(R.string.items_moved, selected.size) }.getOrDefault("Moving items: ${selected.size}")
             } else {
-                runCatching { context.getString(R.string.items_copied, successCount) }.getOrDefault("Copied items: $successCount")
+                runCatching { context.getString(R.string.items_copied, selected.size) }.getOrDefault("Copying items: ${selected.size}")
             }
             _effects.send(ExplorerEffect.ShowSnackbar(msg))
-            sourcePane.activeTab?.currentUri?.let { loadDirectory(it, sourceIndex) }
-            loadDirectory(targetUri, targetIndex)
         }
+    }
+
+    private fun compressSelected(name: String, isZip: Boolean, password: String?, paneIndex: Int) {
+        val pane = getPane(paneIndex)
+        val activeTab = pane.activeTab ?: return
+        val selected = _uiState.value.compressDialogSources ?: pane.selectedUris.toList()
+        if (selected.isEmpty()) return
+
+        val destDir = activeTab.currentUri
+        fileOperationManager.enqueueCompress(
+            sources = selected,
+            destinationDir = destDir,
+            archiveName = name,
+            password = password
+        )
+
+        _uiState.update { it.copy(compressDialogSources = null) }
+        clearSelection(paneIndex)
+        viewModelScope.launch {
+            val msg = runCatching { context.getString(R.string.operations_compress) }.getOrDefault("Compressing...")
+            _effects.send(ExplorerEffect.ShowSnackbar(msg))
+        }
+    }
+
+    private fun extractArchive(archiveUri: VfsUri, destinationDir: VfsUri) {
+        fileOperationManager.enqueueExtract(archiveUri, destinationDir)
+        viewModelScope.launch {
+            val msg = runCatching { context.getString(R.string.operations_extract) }.getOrDefault("Extracting...")
+            _effects.send(ExplorerEffect.ShowSnackbar(msg))
+        }
+    }
+
+    private fun submitDirectArchivePassword(password: String, paneIndex: Int) {
+        val uri = _uiState.value.pendingPasswordUri ?: return
+        archivePasswordStore.setPassword(uri, password)
+        _uiState.update {
+            it.copy(
+                isPasswordDialogVisible = false,
+                passwordError = null,
+                pendingPasswordUri = null
+            )
+        }
+        loadDirectory(uri, paneIndex)
     }
 
     private fun isTextOrCodeNode(node: VfsNode): Boolean {
@@ -439,7 +553,7 @@ class ExplorerViewModel @Inject constructor(
             var preview: String? = null
             if (isTextOrCodeNode(node) && node.sizeBytes < 50L * 1024 * 1024) {
                 preview = withContext(ioDispatcher) {
-                    runCatching {
+                    try {
                         vfsRouter.openInputStream(node.uri).use { stream ->
                             val buffer = ByteArray(8192)
                             val read = stream.read(buffer)
@@ -450,7 +564,20 @@ class ExplorerViewModel @Inject constructor(
                                 } else null
                             } else null
                         }
-                    }.getOrNull()
+                    } catch (e: VfsException.AuthenticationRequired) {
+                        _uiState.update {
+                            it.copy(
+                                pendingPasswordUri = node.uri,
+                                isPasswordDialogVisible = true,
+                                passwordError = if (archivePasswordStore.hasPassword(node.uri)) {
+                                    context.getString(R.string.archive_password_wrong)
+                                } else null
+                            )
+                        }
+                        null
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
             }
 

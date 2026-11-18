@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0-alpha] - 2026-11-18
+
+### Added
+- **`:core:operations`**: Background file operations queue and execution engine:
+  - `FileOperationManager`: Thread-safe `@Singleton` dispatcher managing lifecycle of `COPY`, `MOVE`, `DELETE`, `COMPRESS`, and `EXTRACT` operations on `Dispatchers.IO`.
+  - Live progress metrics: Streamed byte-level counting, file counters, and 500ms smoothed transfer speed (KB/s and MB/s).
+  - Suspend barrier for Pause / Resume and cooperative cancellation.
+  - Interactive Conflict Resolution: Detection of collisions via `vfsRouter.exists(targetUri)`, emitting `FileConflictPrompt` with `OVERWRITE`, `SKIP`, and auto-renaming `KEEP_BOTH` (e.g. `file (1).ext`) strategies and «Apply to all» persistence.
+  - Transparent Archive Compression: Support for generating `.zip` (with optional AES-256 encryption via Zip4j) and `.tar.gz` (via Commons Compress) archives directly to VFS target URIs.
+  - Archive Extraction: Unpacking from VFS archive URIs to target destination directories with nested directory creation.
+  - `FileOperationForegroundService`: Android Foreground Service with `dataSync` type, dynamic notifications with progress bar, speed display, and pause/resume/cancel pending actions.
+- **`:providers:archive`**: Virtual File System provider for archives under `archive://` scheme:
+  - Supports transparent browsing of `.zip`, `.rar` (RAR4/RAR5), `.7z`, `.tar`, `.tar.gz` (`.tgz`), `.tar.bz2`, and `.tar.xz`.
+  - `VirtualArchiveTree`: In-memory directory tree abstraction providing hierarchical `listDirectory` and `getMetadata` without full extraction to disk.
+  - `ArchivePasswordStore`: Thread-safe `@Singleton` in-memory session cache for archive passwords in `:core:vfs`.
+  - Password Protection: Dynamic authentication challenge throwing `VfsException.AuthenticationRequired` for encrypted archives or entries, seamlessly unlocked via `ArchivePasswordStore`.
+  - Random-access streaming via `RandomAccessContent` for fast seeking and previews.
+  - Registered in Hilt graph via `@Binds @IntoSet FileSystemProvider`.
+- **`:feature:explorer` Integration**:
+  - Transparent Archive Entry: Clicking recognized archive files opens them as virtual directories via `archive://` URI.
+  - Breadcrumbs Navigation: Enhanced `ScoutPathBar` with specialized archive segment rendering allowing navigation within internal folders, archive root, and jumping back to host directory.
+  - `OperationsQueueSheet`: Modal bottom sheet displaying active tasks, progress bars, real-time speed, status chips, and pause/cancel controls.
+  - Modal Dialogs:
+    - `CompressDialog`: Create zip or tar.gz archive with optional AES-256 password protection.
+    - `ArchivePasswordDialog`: Password prompt with visibility toggle and wrong password feedback.
+    - `FileConflictDialog`: Overwrite, Skip, and Keep Both resolution with «Apply to all remaining» option.
+  - Top bar operations badge indicating count of active background operations.
+  - Contextual selection bar actions for compressing selected items and extracting archives.
+  - Full bilingual localization (English in `values/strings.xml`, Russian in `values-ru/strings.xml`).
+- **Unit Testing**:
+  - `FileOperationManagerTest`: Tests for streaming copy, conflict handling (`OVERWRITE`, `SKIP`, `KEEP_BOTH`), encrypted zip creation, pause, and cancellation.
+  - `ArchiveFileSystemProviderTest`: Tests for directory listing, entry reading, password-protected AES-256 ZIP authentication and recovery via `ArchivePasswordStore`, and tar.gz streaming.
+  - `ExplorerViewModelTest`: Tests for archive navigation, operation queuing, and conflict/password state flows.
+
 ## [0.2.0-alpha] - 2026-11-18
 
 ### Added
