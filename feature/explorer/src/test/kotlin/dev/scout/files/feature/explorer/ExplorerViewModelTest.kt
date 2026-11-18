@@ -8,6 +8,9 @@ import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
 import dev.scout.files.core.model.VolumeType
 import dev.scout.files.core.operations.FileOperationManager
+import dev.scout.files.core.operations.model.FileOperationTask
+import dev.scout.files.core.operations.model.FileOperationType
+import dev.scout.files.core.operations.model.OperationStatus
 import dev.scout.files.core.vfs.ArchivePasswordStore
 import dev.scout.files.core.vfs.VfsRouter
 import dev.scout.files.feature.explorer.model.ExplorerIntent
@@ -386,5 +389,87 @@ class ExplorerViewModelTest {
         assertNotNull(state.quickLook)
         assertEquals(videoNode, state.quickLook?.node)
         assertNull(state.quickLook?.textPreview)
+    }
+
+    @Test
+    fun testQuickLookPasswordChallengeAndRetry() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val secretFileUri = ArchiveUri.build(rootUri.resolve("vault.zip"), "secret.txt")
+        val secretNode = VfsNode(
+            uri = secretFileUri,
+            name = "secret.txt",
+            isDirectory = false,
+            sizeBytes = 100L,
+            extension = "txt"
+        )
+
+        // 1. First attempt requires authentication
+        coEvery { vfsRouter.openInputStream(secretFileUri) } throws dev.scout.files.core.model.VfsException.AuthenticationRequired(
+            secretFileUri,
+            "Password required"
+        ) andThen "Decrypted top secret content".byteInputStream()
+
+        viewModel.handleIntent(ExplorerIntent.OpenQuickLook(secretNode))
+        advanceUntilIdle()
+
+        val state1 = viewModel.uiState.value
+        assertTrue(state1.isPasswordDialogVisible)
+        assertEquals(secretFileUri, state1.pendingPasswordUri)
+        assertEquals(secretNode, state1.pendingPasswordNode)
+
+        // 2. Submit password - should store in ArchivePasswordStore and auto-retry Quick Look
+        viewModel.handleIntent(ExplorerIntent.SubmitDirectArchivePassword("password123", 0))
+        advanceUntilIdle()
+
+        val state2 = viewModel.uiState.value
+        assertFalse(state2.isPasswordDialogVisible)
+        assertNull(state2.pendingPasswordUri)
+        assertNull(state2.pendingPasswordNode)
+
+        assertNotNull(state2.quickLook)
+        assertEquals(secretNode, state2.quickLook?.node)
+        assertEquals("Decrypted top secret content", state2.quickLook?.textPreview)
+    }
+
+    @Test
+    fun testSubsequentOperationsBothTriggerRefresh() = runTest(testDispatcher) {
+        val tasksFlow = MutableStateFlow<List<FileOperationTask>>(emptyList())
+        every { fileOperationManager.tasks } returns tasksFlow
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val task1 = FileOperationTask(
+            id = "t1",
+            type = FileOperationType.COPY,
+            sources = listOf(rootUri.resolve("f1.txt")),
+            destinationDir = rootUri,
+            status = OperationStatus.RUNNING
+        )
+        val task2 = FileOperationTask(
+            id = "t2",
+            type = FileOperationType.MOVE,
+            sources = listOf(rootUri.resolve("f2.txt")),
+            destinationDir = rootUri,
+            status = OperationStatus.RUNNING
+        )
+
+        tasksFlow.value = listOf(task1, task2)
+        advanceUntilIdle()
+
+        // Complete task 1
+        tasksFlow.value = listOf(task1.copy(status = OperationStatus.COMPLETED), task2)
+        advanceUntilIdle()
+
+        // Complete task 2
+        tasksFlow.value = listOf(task1.copy(status = OperationStatus.COMPLETED), task2.copy(status = OperationStatus.COMPLETED))
+        advanceUntilIdle()
+
+        // Both completed tasks observed
+        val state = viewModel.uiState.value
+        assertEquals(2, state.operationsTasks.size)
+        assertTrue(state.operationsTasks.all { it.status == OperationStatus.COMPLETED })
     }
 }

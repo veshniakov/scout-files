@@ -12,19 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `FileOperationManager`: Thread-safe `@Singleton` dispatcher managing lifecycle of `COPY`, `MOVE`, `DELETE`, `COMPRESS`, and `EXTRACT` operations on `Dispatchers.IO`.
   - Live progress metrics: Streamed byte-level counting, file counters, and 500ms smoothed transfer speed (KB/s and MB/s).
   - Suspend barrier for Pause / Resume and cooperative cancellation.
-  - Interactive Conflict Resolution: Detection of collisions via `vfsRouter.exists(targetUri)`, emitting `FileConflictPrompt` with `OVERWRITE`, `SKIP`, and auto-renaming `KEEP_BOTH` (e.g. `file (1).ext`) strategies and «Apply to all» persistence.
+  - Interactive Conflict Resolution: Detection of collisions via `vfsRouter.exists(targetUri)` during copy, move, and extraction, emitting `FileConflictPrompt` with `OVERWRITE`, `SKIP`, and auto-renaming `KEEP_BOTH` (e.g. `file (1).ext`) strategies and «Apply to all» persistence.
   - Transparent Archive Compression: Support for generating `.zip` (with optional AES-256 encryption via Zip4j) and `.tar.gz` (via Commons Compress) archives directly to VFS target URIs.
-  - Archive Extraction: Unpacking from VFS archive URIs to target destination directories with nested directory creation.
-  - `FileOperationForegroundService`: Android Foreground Service with `dataSync` type, dynamic notifications with progress bar, speed display, and pause/resume/cancel pending actions.
+  - Archive Extraction: Unpacking from VFS archive URIs to target destination directories with nested directory creation, conflict handling, live speed/progress estimation, and single file extraction support.
+  - `FileOperationForegroundService`: Android Foreground Service with `dataSync` type, dynamic notifications with progress bar, speed display, pause/resume/cancel pending actions, and full bilingual localization.
 - **`:providers:archive`**: Virtual File System provider for archives under `archive://` scheme:
   - Supports transparent browsing of `.zip`, `.rar` (RAR4/RAR5), `.7z`, `.tar`, `.tar.gz` (`.tgz`), `.tar.bz2`, and `.tar.xz`.
-  - `VirtualArchiveTree`: In-memory directory tree abstraction providing hierarchical `listDirectory` and `getMetadata` without full extraction to disk.
+  - `VirtualArchiveTree`: In-memory directory tree abstraction providing hierarchical `listDirectory` and `getMetadata` without full extraction to disk, with Zip Slip path traversal defenses.
+  - OOM-Safe Streaming: Direct streaming for tar, zip, 7z, and rar entries without whole-file in-memory buffering.
+  - Resource Safety: Explicit file descriptor cleanup for SevenZ and Junrar archives on stream close.
+  - Robust Path Handling: Correct handling of standard tar archives with `./` entry prefixes.
   - `ArchivePasswordStore`: Thread-safe `@Singleton` in-memory session cache for archive passwords in `:core:vfs`.
   - Password Protection: Dynamic authentication challenge throwing `VfsException.AuthenticationRequired` for encrypted archives or entries, seamlessly unlocked via `ArchivePasswordStore`.
   - Random-access streaming via `RandomAccessContent` for fast seeking and previews.
   - Registered in Hilt graph via `@Binds @IntoSet FileSystemProvider`.
 - **`:feature:explorer` Integration**:
   - Transparent Archive Entry: Clicking recognized archive files opens them as virtual directories via `archive://` URI.
+  - Quick Look Password Recovery: Entering an archive password automatically unlocks and retries the file preview.
+  - Reliable Operations Queue: Auto-refreshes current panes on completion of every background task.
   - Breadcrumbs Navigation: Enhanced `ScoutPathBar` with specialized archive segment rendering allowing navigation within internal folders, archive root, and jumping back to host directory.
   - `OperationsQueueSheet`: Modal bottom sheet displaying active tasks, progress bars, real-time speed, status chips, and pause/cancel controls.
   - Modal Dialogs:
@@ -35,9 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Contextual selection bar actions for compressing selected items and extracting archives.
   - Full bilingual localization (English in `values/strings.xml`, Russian in `values-ru/strings.xml`).
 - **Unit Testing**:
-  - `FileOperationManagerTest`: Tests for streaming copy, conflict handling (`OVERWRITE`, `SKIP`, `KEEP_BOTH`), encrypted zip creation, pause, and cancellation.
-  - `ArchiveFileSystemProviderTest`: Tests for directory listing, entry reading, password-protected AES-256 ZIP authentication and recovery via `ArchivePasswordStore`, and tar.gz streaming.
-  - `ExplorerViewModelTest`: Tests for archive navigation, operation queuing, and conflict/password state flows.
+  - `FileOperationManagerTest`: Tests for streaming copy, extraction with conflict handling (`OVERWRITE`, `SKIP`, `KEEP_BOTH`), single file extraction from inside archives, encrypted zip creation, pause, and cancellation.
+  - `ArchiveFileSystemProviderTest`: Tests for directory listing, entry reading, password-protected AES-256 ZIP authentication and recovery via `ArchivePasswordStore`, tar.gz streaming, dot-slash tar handling, and read-only restrictions.
+  - `ExplorerViewModelTest`: Tests for archive navigation, operation queuing, Quick Look password challenge/retry, and conflict/password state flows.
 
 ## [0.2.0-alpha] - 2026-11-18
 

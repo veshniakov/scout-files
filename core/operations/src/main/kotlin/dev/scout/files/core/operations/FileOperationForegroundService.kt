@@ -44,24 +44,16 @@ class FileOperationForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PAUSE -> {
-                val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return START_NOT_STICKY
-                fileOperationManager.pause(taskId)
+                intent.getStringExtra(EXTRA_TASK_ID)?.let { fileOperationManager.pause(it) }
             }
             ACTION_RESUME -> {
-                val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return START_NOT_STICKY
-                fileOperationManager.resume(taskId)
+                intent.getStringExtra(EXTRA_TASK_ID)?.let { fileOperationManager.resume(it) }
             }
             ACTION_CANCEL -> {
-                val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return START_NOT_STICKY
-                fileOperationManager.cancel(taskId)
-            }
-            ACTION_START -> {
-                startObservingTasks()
-            }
-            else -> {
-                startObservingTasks()
+                intent.getStringExtra(EXTRA_TASK_ID)?.let { fileOperationManager.cancel(it) }
             }
         }
+        startObservingTasks()
         return START_NOT_STICKY
     }
 
@@ -99,19 +91,19 @@ class FileOperationForegroundService : Service() {
 
     private fun buildNotification(task: FileOperationTask): Notification {
         val title = when (task.type) {
-            FileOperationType.COPY -> "Scout: Copying files"
-            FileOperationType.MOVE -> "Scout: Moving files"
-            FileOperationType.DELETE -> "Scout: Deleting files"
-            FileOperationType.COMPRESS -> "Scout: Compressing archive"
-            FileOperationType.EXTRACT -> "Scout: Extracting archive"
+            FileOperationType.COPY -> getString(R.string.notification_title_copy)
+            FileOperationType.MOVE -> getString(R.string.notification_title_move)
+            FileOperationType.DELETE -> getString(R.string.notification_title_delete)
+            FileOperationType.COMPRESS -> getString(R.string.notification_title_compress)
+            FileOperationType.EXTRACT -> getString(R.string.notification_title_extract)
         }
 
         val speedText = formatSpeed(task.speedBytesPerSec)
         val fileText = task.currentFileName ?: ""
         val contentText = when {
-            task.status == OperationStatus.PAUSED -> "Paused • $fileText"
-            task.status == OperationStatus.WAITING_CONFLICT -> "Waiting for conflict resolution"
-            task.status == OperationStatus.WAITING_PASSWORD -> "Waiting for password"
+            task.status == OperationStatus.PAUSED -> "${getString(R.string.notification_status_paused)} • $fileText"
+            task.status == OperationStatus.WAITING_CONFLICT -> getString(R.string.notification_status_waiting_conflict)
+            task.status == OperationStatus.WAITING_PASSWORD -> getString(R.string.notification_status_waiting_password)
             fileText.isNotEmpty() && speedText.isNotEmpty() -> "$fileText • $speedText"
             fileText.isNotEmpty() -> fileText
             else -> speedText
@@ -146,7 +138,7 @@ class FileOperationForegroundService : Service() {
                 resumeIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            builder.addAction(android.R.drawable.ic_media_play, "Resume", resumePending)
+            builder.addAction(android.R.drawable.ic_media_play, getString(R.string.notification_action_resume), resumePending)
         } else {
             val pauseIntent = Intent(this, FileOperationForegroundService::class.java).apply {
                 action = ACTION_PAUSE
@@ -158,7 +150,7 @@ class FileOperationForegroundService : Service() {
                 pauseIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            builder.addAction(android.R.drawable.ic_media_pause, "Pause", pausePending)
+            builder.addAction(android.R.drawable.ic_media_pause, getString(R.string.notification_action_pause), pausePending)
         }
 
         val cancelIntent = Intent(this, FileOperationForegroundService::class.java).apply {
@@ -171,7 +163,7 @@ class FileOperationForegroundService : Service() {
             cancelIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", cancelPending)
+        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.notification_action_cancel), cancelPending)
 
         return builder.build()
     }
@@ -191,10 +183,10 @@ class FileOperationForegroundService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "File Operations",
+                getString(R.string.notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows progress and controls for background file transfers"
+                description = getString(R.string.notification_channel_desc)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)

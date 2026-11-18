@@ -38,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.scout.files.core.designsystem.R
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
@@ -174,7 +176,7 @@ fun ScoutPathBar(
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
-                                        text = "ARCHIVE",
+                                        text = stringResource(R.string.pathbar_archive).uppercase(),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer

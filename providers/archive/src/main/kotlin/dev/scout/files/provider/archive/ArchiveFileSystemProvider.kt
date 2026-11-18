@@ -17,6 +17,7 @@ import net.lingala.zip4j.exception.ZipException
 import org.apache.commons.compress.PasswordRequiredException
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry
 import org.apache.commons.compress.archivers.sevenz.SevenZFile
+import org.apache.commons.compress.archivers.sevenz.SevenZMethod
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
@@ -175,7 +176,13 @@ class ArchiveFileSystemProvider @Inject constructor(
         val file = resolveLocalArchiveFile(sourceUri)
         val cacheKey = "${sourceUri.raw}:${file.lastModified()}:${file.length()}"
         val cached = treeCache[cacheKey]
-        if (cached != null) return cached
+        if (cached != null) {
+            if (cached.entries.any { it.isEncrypted } && !archivePasswordStore.hasPassword(sourceUri)) {
+                treeCache.remove(cacheKey)
+                throw VfsException.AuthenticationRequired(sourceUri, "Archive requires password")
+            }
+            return cached
+        }
 
         val tree = loadVirtualTree(file, sourceUri)
         treeCache[cacheKey] = tree
@@ -231,16 +238,19 @@ class ArchiveFileSystemProvider @Inject constructor(
             zipFile.setPassword(password)
         }
         return try {
-            zipFile.fileHeaders.map { header ->
-                val clean = header.fileName.replace('\\', '/')
-                ArchiveEntryInfo(
-                    path = if (clean.startsWith("/")) clean else "/$clean",
-                    name = clean.trimEnd('/').substringAfterLast('/', clean.trimEnd('/')),
-                    isDirectory = header.isDirectory,
-                    size = header.uncompressedSize,
-                    lastModified = header.lastModifiedTimeEpoch,
-                    isEncrypted = header.isEncrypted
-                )
+            zipFile.fileHeaders.mapNotNull { header ->
+                val clean = header.fileName.replace('\\', '/').removePrefix("./").removePrefix("/")
+                if (clean.isEmpty()) null
+                else {
+                    ArchiveEntryInfo(
+                        path = "/$clean",
+                        name = clean.trimEnd('/').substringAfterLast('/', clean.trimEnd('/')),
+                        isDirectory = header.isDirectory,
+                        size = header.uncompressedSize,
+                        lastModified = header.lastModifiedTimeEpoch,
+                        isEncrypted = header.isEncrypted
+                    )
+                }
             }
         } catch (e: ZipException) {
             if (e.type == ZipException.Type.WRONG_PASSWORD || e.message?.contains("password", ignoreCase = true) == true) {
@@ -266,19 +276,27 @@ class ArchiveFileSystemProvider @Inject constructor(
         }
 
         if ((archive.isEncrypted || archive.isPasswordProtected) && password == null) {
+            archive.close()
             throw VfsException.AuthenticationRequired(sourceUri, "RAR archive is password protected")
         }
 
-        return archive.fileHeaders.map { header ->
-            val name = header.fileName.replace('\\', '/')
-            ArchiveEntryInfo(
-                path = if (name.startsWith("/")) name else "/$name",
-                name = name.trimEnd('/').substringAfterLast('/', name.trimEnd('/')),
-                isDirectory = header.isDirectory,
-                size = header.unpSize,
-                lastModified = header.mTime?.time ?: 0L,
-                isEncrypted = header.isEncrypted
-            )
+        return try {
+            archive.fileHeaders.mapNotNull { header ->
+                val clean = header.fileName.replace('\\', '/').removePrefix("./").removePrefix("/")
+                if (clean.isEmpty()) null
+                else {
+                    ArchiveEntryInfo(
+                        path = "/$clean",
+                        name = clean.trimEnd('/').substringAfterLast('/', clean.trimEnd('/')),
+                        isDirectory = header.isDirectory,
+                        size = header.unpSize,
+                        lastModified = header.mTime?.time ?: 0L,
+                        isEncrypted = header.isEncrypted
+                    )
+                }
+            }
+        } finally {
+            archive.close()
         }
     }
 
@@ -296,16 +314,20 @@ class ArchiveFileSystemProvider @Inject constructor(
         }
 
         sz.use { sevenZFile ->
-            return sevenZFile.entries.map { entry ->
-                val name = entry.name.replace('\\', '/')
-                ArchiveEntryInfo(
-                    path = if (name.startsWith("/")) name else "/$name",
-                    name = name.trimEnd('/').substringAfterLast('/', name.trimEnd('/')),
-                    isDirectory = entry.isDirectory,
-                    size = entry.size,
-                    lastModified = entry.lastModifiedDate?.time ?: 0L,
-                    isEncrypted = entry.hasStream() && password != null
-                )
+            return sevenZFile.entries.mapNotNull { entry ->
+                val clean = entry.name.replace('\\', '/').removePrefix("./").removePrefix("/")
+                if (clean.isEmpty()) null
+                else {
+                    val isEnc = entry.contentMethods?.any { it.method == SevenZMethod.AES256SHA256 } == true
+                    ArchiveEntryInfo(
+                        path = "/$clean",
+                        name = clean.trimEnd('/').substringAfterLast('/', clean.trimEnd('/')),
+                        isDirectory = entry.isDirectory,
+                        size = entry.size,
+                        lastModified = entry.lastModifiedDate?.time ?: 0L,
+                        isEncrypted = isEnc
+                    )
+                }
             }
         }
     }
@@ -315,17 +337,19 @@ class ArchiveFileSystemProvider @Inject constructor(
         TarArchiveInputStream(decompressor(file.inputStream().buffered())).use { tarIn ->
             var entry = tarIn.nextTarEntry
             while (entry != null) {
-                val name = entry.name.replace('\\', '/')
-                entries.add(
-                    ArchiveEntryInfo(
-                        path = if (name.startsWith("/")) name else "/$name",
-                        name = name.trimEnd('/').substringAfterLast('/', name.trimEnd('/')),
-                        isDirectory = entry.isDirectory,
-                        size = entry.size,
-                        lastModified = entry.modTime?.time ?: 0L,
-                        isEncrypted = false
+                val clean = entry.name.replace('\\', '/').removePrefix("./").removePrefix("/")
+                if (clean.isNotEmpty()) {
+                    entries.add(
+                        ArchiveEntryInfo(
+                            path = "/$clean",
+                            name = clean.trimEnd('/').substringAfterLast('/', clean.trimEnd('/')),
+                            isDirectory = entry.isDirectory,
+                            size = entry.size,
+                            lastModified = entry.modTime?.time ?: 0L,
+                            isEncrypted = false
+                        )
                     )
-                )
+                }
                 entry = tarIn.nextTarEntry
             }
         }
@@ -334,23 +358,50 @@ class ArchiveFileSystemProvider @Inject constructor(
 
     private fun openZipEntry(file: File, sourceUri: VfsUri, entryPath: String, requestedUri: VfsUri): InputStream {
         val zipFile = net.lingala.zip4j.ZipFile(file)
-        if (zipFile.isEncrypted) {
+        val cleanRequested = entryPath.removePrefix("./").removePrefix("/").trimEnd('/')
+        val header = zipFile.getFileHeader(cleanRequested)
+            ?: zipFile.fileHeaders.firstOrNull {
+                it.fileName.replace('\\', '/').removePrefix("./").removePrefix("/").trimEnd('/') == cleanRequested
+            }
+            ?: throw VfsException.NotFound(requestedUri)
+
+        val isEncrypted = header.isEncrypted || zipFile.isEncrypted
+        if (isEncrypted) {
             val password = archivePasswordStore.getPassword(sourceUri)
-                ?: throw VfsException.AuthenticationRequired(requestedUri, "ZIP archive requires password")
+                ?: throw VfsException.AuthenticationRequired(requestedUri, "ZIP entry requires password")
             zipFile.setPassword(password)
         }
 
-        val header = zipFile.getFileHeader(entryPath)
-            ?: zipFile.fileHeaders.firstOrNull { it.fileName.replace('\\', '/').trimEnd('/') == entryPath }
-            ?: throw VfsException.NotFound(requestedUri)
-
-        return try {
+        val rawStream = try {
             zipFile.getInputStream(header)
         } catch (e: ZipException) {
             if (e.type == ZipException.Type.WRONG_PASSWORD || e.message?.contains("password", ignoreCase = true) == true) {
                 throw VfsException.AuthenticationRequired(requestedUri, "Incorrect password for ZIP entry", e)
             }
             throw VfsException.Io(requestedUri, "Failed reading ZIP entry", e)
+        }
+
+        return object : InputStream() {
+            override fun read(): Int = try {
+                rawStream.read()
+            } catch (e: ZipException) {
+                if (e.type == ZipException.Type.WRONG_PASSWORD || e.message?.contains("password", ignoreCase = true) == true) {
+                    throw VfsException.AuthenticationRequired(requestedUri, "Incorrect password for ZIP entry", e)
+                }
+                throw e
+            }
+            override fun read(b: ByteArray, off: Int, len: Int): Int = try {
+                rawStream.read(b, off, len)
+            } catch (e: ZipException) {
+                if (e.type == ZipException.Type.WRONG_PASSWORD || e.message?.contains("password", ignoreCase = true) == true) {
+                    throw VfsException.AuthenticationRequired(requestedUri, "Incorrect password for ZIP entry", e)
+                }
+                throw e
+            }
+            override fun read(b: ByteArray): Int = read(b, 0, b.size)
+            override fun skip(n: Long): Long = rawStream.skip(n)
+            override fun available(): Int = rawStream.available()
+            override fun close() = rawStream.close()
         }
     }
 
@@ -370,24 +421,47 @@ class ArchiveFileSystemProvider @Inject constructor(
         }
 
         if ((archive.isEncrypted || archive.isPasswordProtected) && password == null) {
+            archive.close()
             throw VfsException.AuthenticationRequired(requestedUri, "Entry requires password")
         }
 
+        val cleanRequested = entryPath.removePrefix("./").removePrefix("/").trimEnd('/')
         val header = archive.fileHeaders.firstOrNull {
-            it.fileName.replace('\\', '/').trimEnd('/') == entryPath
-        } ?: throw VfsException.NotFound(requestedUri)
+            it.fileName.replace('\\', '/').removePrefix("./").removePrefix("/").trimEnd('/') == cleanRequested
+        }
+        if (header == null) {
+            archive.close()
+            throw VfsException.NotFound(requestedUri)
+        }
 
         if (header.isEncrypted && password == null) {
+            archive.close()
             throw VfsException.AuthenticationRequired(requestedUri, "Entry requires password")
         }
 
-        return try {
+        val rawStream = try {
             archive.getInputStream(header)
         } catch (e: Exception) {
+            archive.close()
             if (e.message?.contains("password", ignoreCase = true) == true) {
                 throw VfsException.AuthenticationRequired(requestedUri, "Wrong RAR password", e)
             }
             throw VfsException.Io(requestedUri, "Error reading RAR entry", e)
+        }
+
+        return object : InputStream() {
+            override fun read(): Int = rawStream.read()
+            override fun read(b: ByteArray): Int = rawStream.read(b)
+            override fun read(b: ByteArray, off: Int, len: Int): Int = rawStream.read(b, off, len)
+            override fun skip(n: Long): Long = rawStream.skip(n)
+            override fun available(): Int = rawStream.available()
+            override fun close() {
+                try {
+                    rawStream.close()
+                } finally {
+                    archive.close()
+                }
+            }
         }
     }
 
@@ -397,12 +471,63 @@ class ArchiveFileSystemProvider @Inject constructor(
             SevenZFile(file, password)
         } catch (e: PasswordRequiredException) {
             throw VfsException.AuthenticationRequired(requestedUri, "7z requires password", e)
+        } catch (e: Exception) {
+            if (e.message?.contains("password", ignoreCase = true) == true) {
+                throw VfsException.AuthenticationRequired(requestedUri, "Password error for 7z", e)
+            }
+            throw VfsException.Io(requestedUri, "Error opening 7z", e)
         }
 
+        val cleanRequested = entryPath.removePrefix("./").removePrefix("/").trimEnd('/')
         var entry: SevenZArchiveEntry? = sz.nextEntry
         while (entry != null) {
-            if (entry.name.replace('\\', '/').trimEnd('/') == entryPath) {
-                return sz.getInputStream(entry)
+            val cleanName = entry.name.replace('\\', '/').removePrefix("./").removePrefix("/").trimEnd('/')
+            if (cleanName == cleanRequested) {
+                val isEnc = entry.contentMethods?.any { it.method == SevenZMethod.AES256SHA256 } == true
+                if (isEnc && password == null) {
+                    sz.close()
+                    throw VfsException.AuthenticationRequired(requestedUri, "7z entry requires password")
+                }
+                val rawStream = try {
+                    sz.getInputStream(entry)
+                } catch (e: PasswordRequiredException) {
+                    sz.close()
+                    throw VfsException.AuthenticationRequired(requestedUri, "7z entry requires password", e)
+                } catch (e: Exception) {
+                    sz.close()
+                    if (e.message?.contains("password", ignoreCase = true) == true) {
+                        throw VfsException.AuthenticationRequired(requestedUri, "Password error", e)
+                    }
+                    throw VfsException.Io(requestedUri, "Failed reading 7z entry", e)
+                }
+                return object : InputStream() {
+                    override fun read(): Int = try {
+                        rawStream.read()
+                    } catch (e: Exception) {
+                        if (e is PasswordRequiredException || e.message?.contains("password", ignoreCase = true) == true) {
+                            throw VfsException.AuthenticationRequired(requestedUri, "Password error for 7z", e)
+                        }
+                        throw e
+                    }
+                    override fun read(b: ByteArray, off: Int, len: Int): Int = try {
+                        rawStream.read(b, off, len)
+                    } catch (e: Exception) {
+                        if (e is PasswordRequiredException || e.message?.contains("password", ignoreCase = true) == true) {
+                            throw VfsException.AuthenticationRequired(requestedUri, "Password error for 7z", e)
+                        }
+                        throw e
+                    }
+                    override fun read(b: ByteArray): Int = read(b, 0, b.size)
+                    override fun skip(n: Long): Long = rawStream.skip(n)
+                    override fun available(): Int = rawStream.available()
+                    override fun close() {
+                        try {
+                            rawStream.close()
+                        } finally {
+                            sz.close()
+                        }
+                    }
+                }
             }
             entry = sz.nextEntry
         }
@@ -416,17 +541,35 @@ class ArchiveFileSystemProvider @Inject constructor(
         requestedUri: VfsUri,
         decompressor: (InputStream) -> InputStream
     ): InputStream {
-        TarArchiveInputStream(decompressor(file.inputStream().buffered())).use { tarIn ->
-            var entry = tarIn.nextTarEntry
-            while (entry != null) {
-                if (entry.name.replace('\\', '/').trimEnd('/') == entryPath) {
-                    val baos = ByteArrayOutputStream()
-                    tarIn.copyTo(baos)
-                    return ByteArrayInputStream(baos.toByteArray())
+        val cleanRequested = entryPath.removePrefix("./").removePrefix("/").trimEnd('/')
+        val fis = file.inputStream().buffered()
+        val decompressed = decompressor(fis)
+        val tarIn = TarArchiveInputStream(decompressed)
+        var entry = tarIn.nextTarEntry
+        while (entry != null) {
+            val cleanName = entry.name.replace('\\', '/').removePrefix("./").removePrefix("/").trimEnd('/')
+            if (cleanName == cleanRequested) {
+                return object : InputStream() {
+                    override fun read(): Int = tarIn.read()
+                    override fun read(b: ByteArray, off: Int, len: Int): Int = tarIn.read(b, off, len)
+                    override fun read(b: ByteArray): Int = tarIn.read(b)
+                    override fun skip(n: Long): Long = tarIn.skip(n)
+                    override fun available(): Int = tarIn.available()
+                    override fun close() {
+                        try {
+                            tarIn.close()
+                        } finally {
+                            decompressed.close()
+                            fis.close()
+                        }
+                    }
                 }
-                entry = tarIn.nextTarEntry
             }
+            entry = tarIn.nextTarEntry
         }
+        tarIn.close()
+        decompressed.close()
+        fis.close()
         throw VfsException.NotFound(requestedUri)
     }
 }
@@ -451,7 +594,7 @@ class VirtualArchiveTree(val entries: List<ArchiveEntryInfo>) {
             val normalizedPath = normalizePath(entry.path)
             entriesByPath[normalizedPath] = entry
 
-            val segments = normalizedPath.split('/').filter { it.isNotEmpty() }
+            val segments = normalizedPath.split('/').filter { it.isNotEmpty() && it != "." && it != ".." }
             var currentPath = ""
             for (i in 0 until segments.size - 1) {
                 val parentPath = if (currentPath.isEmpty()) "/" else currentPath

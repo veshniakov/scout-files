@@ -150,4 +150,107 @@ class ArchiveFileSystemProviderTest {
         val read = provider.openInputStream(readmeUri).bufferedReader().use { it.readText() }
         assertEquals(content, read)
     }
+
+    @Test
+    fun testTarWithDotSlashEntries() = runTest(testDispatcher) {
+        val tarFile = File(tempDir, "prefixed.tar")
+        val content = "Testing dot-slash prefixed tar entry"
+
+        TarArchiveOutputStream(tarFile.outputStream().buffered()).use { tos ->
+            // Root dot entry
+            tos.putArchiveEntry(TarArchiveEntry("./").apply { isDirectory })
+            tos.closeArchiveEntry()
+
+            // File entry with ./ prefix
+            val data = content.toByteArray()
+            val fileEntry = TarArchiveEntry("./test_file.txt").apply {
+                size = data.size.toLong()
+            }
+            tos.putArchiveEntry(fileEntry)
+            tos.write(data)
+            tos.closeArchiveEntry()
+        }
+
+        val baseUri = ArchiveUri.build(VfsUri.fromFile(tarFile.absolutePath), "/")
+        val rootChildren = provider.listDirectory(baseUri)
+
+        // Root directory should not contain '.'
+        assertFalse(rootChildren.any { it.name == "." })
+        assertTrue(rootChildren.any { it.name == "test_file.txt" && !it.isDirectory })
+
+        val fileUri = ArchiveUri.build(VfsUri.fromFile(tarFile.absolutePath), "test_file.txt")
+        val read = provider.openInputStream(fileUri).bufferedReader().use { it.readText() }
+        assertEquals(content, read)
+    }
+
+    @Test
+    fun testReadOnlyFileSystemRestrictions() = runTest(testDispatcher) {
+        val zipFile = File(tempDir, "readonly.zip")
+        val innerFile = File(tempDir, "inner.txt").apply { writeText("Sample") }
+        ZipFile(zipFile).addFile(innerFile)
+
+        val baseUri = ArchiveUri.build(VfsUri.fromFile(zipFile.absolutePath), "inner.txt")
+
+        try {
+            provider.createDirectory(baseUri)
+            fail("Expected ReadOnlyFileSystem for createDirectory")
+        } catch (e: VfsException.ReadOnlyFileSystem) {
+            assertNotNull(e)
+        }
+
+        try {
+            provider.delete(baseUri, recursive = false)
+            fail("Expected ReadOnlyFileSystem for delete")
+        } catch (e: VfsException.ReadOnlyFileSystem) {
+            assertNotNull(e)
+        }
+
+        try {
+            provider.rename(baseUri, baseUri)
+            fail("Expected ReadOnlyFileSystem for rename")
+        } catch (e: VfsException.ReadOnlyFileSystem) {
+            assertNotNull(e)
+        }
+
+        try {
+            provider.openOutputStream(baseUri, append = false)
+            fail("Expected ReadOnlyFileSystem for openOutputStream")
+        } catch (e: VfsException.ReadOnlyFileSystem) {
+            assertNotNull(e)
+        }
+    }
+
+    @Test
+    fun testZipWrongPasswordChallenge() = runTest(testDispatcher) {
+        val zipFile = File(tempDir, "locked.zip")
+        val content = "Encrypted data"
+        val inner = File(tempDir, "locked.txt").apply { writeText(content) }
+        val correctPassword = "CorrectPassword123"
+
+        val zipParams = ZipParameters().apply {
+            compressionMethod = CompressionMethod.DEFLATE
+            isEncryptFiles = true
+            encryptionMethod = EncryptionMethod.AES
+            aesKeyStrength = AesKeyStrength.KEY_STRENGTH_256
+        }
+
+        ZipFile(zipFile, correctPassword.toCharArray()).addFile(inner, zipParams)
+        val fileUri = VfsUri.fromFile(zipFile.absolutePath)
+        val entryUri = ArchiveUri.build(fileUri, "locked.txt")
+
+        // Set wrong password
+        passwordStore.setPassword(fileUri, "WrongPassword999")
+
+        try {
+            provider.openInputStream(entryUri)
+            fail("Expected AuthenticationRequired on wrong password")
+        } catch (e: VfsException.AuthenticationRequired) {
+            assertNotNull(e)
+        }
+
+        // Set correct password and verify read succeeds
+        passwordStore.setPassword(fileUri, correctPassword)
+        val read = provider.openInputStream(entryUri).bufferedReader().use { it.readText() }
+        assertEquals(content, read)
+    }
 }

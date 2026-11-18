@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -159,7 +160,7 @@ private fun OperationTaskCard(
                 ) {
                     val icon = when (task.type) {
                         FileOperationType.COPY -> Icons.Default.ContentCopy
-                        FileOperationType.MOVE -> Icons.Default.DriveFileMove
+                        FileOperationType.MOVE -> Icons.AutoMirrored.Filled.DriveFileMove
                         FileOperationType.DELETE -> Icons.Default.Delete
                         FileOperationType.COMPRESS -> Icons.Default.Archive
                         FileOperationType.EXTRACT -> Icons.Default.Unarchive
@@ -189,7 +190,7 @@ private fun OperationTaskCard(
 
                 // Status chip
                 val statusText = when (task.status) {
-                    OperationStatus.QUEUED -> "Queued"
+                    OperationStatus.QUEUED -> stringResource(R.string.operations_status_queued)
                     OperationStatus.RUNNING -> stringResource(R.string.operations_status_running)
                     OperationStatus.PAUSED -> stringResource(R.string.operations_status_paused)
                     OperationStatus.WAITING_CONFLICT -> stringResource(R.string.operations_status_waiting_conflict)

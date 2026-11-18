@@ -134,6 +134,7 @@
     <string name="operations_delete">Удаление</string>
     <string name="operations_compress">Сжатие</string>
     <string name="operations_extract">Распаковка</string>
+    <string name="operations_status_queued">В очереди</string>
     <string name="operations_status_running">Выполняется</string>
     <string name="operations_status_paused">Приостановлено</string>
     <string name="operations_status_waiting_conflict">Конфликт</string>

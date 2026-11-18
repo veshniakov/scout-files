@@ -103,11 +103,14 @@ class ExplorerViewModel @Inject constructor(
 
             // Observe background operations queue
             launch {
+                var prevCompletedTaskIds = emptySet<String>()
                 fileOperationManager.tasks.collect { tasks ->
-                    val hadCompleted = _uiState.value.operationsTasks.any { it.status == OperationStatus.COMPLETED }
-                    val hasCompleted = tasks.any { it.status == OperationStatus.COMPLETED }
+                    val currentCompletedIds = tasks.filter { it.status == OperationStatus.COMPLETED }.map { it.id }.toSet()
+                    val newlyCompleted = currentCompletedIds - prevCompletedTaskIds
+                    prevCompletedTaskIds = currentCompletedIds
+
                     _uiState.update { it.copy(operationsTasks = tasks) }
-                    if (!hadCompleted && hasCompleted) {
+                    if (newlyCompleted.isNotEmpty()) {
                         refreshCurrentPanes()
                     }
                 }
@@ -180,7 +183,12 @@ class ExplorerViewModel @Inject constructor(
             is ExplorerIntent.SubmitArchivePassword -> fileOperationManager.submitPassword(intent.password)
             is ExplorerIntent.SubmitDirectArchivePassword -> submitDirectArchivePassword(intent.password, intent.paneIndex)
             is ExplorerIntent.DismissPasswordDialog -> _uiState.update {
-                it.copy(isPasswordDialogVisible = false, passwordError = null, pendingPasswordUri = null)
+                it.copy(
+                    isPasswordDialogVisible = false,
+                    passwordError = null,
+                    pendingPasswordUri = null,
+                    pendingPasswordNode = null
+                )
             }
         }
     }
@@ -510,15 +518,21 @@ class ExplorerViewModel @Inject constructor(
 
     private fun submitDirectArchivePassword(password: String, paneIndex: Int) {
         val uri = _uiState.value.pendingPasswordUri ?: return
+        val pendingNode = _uiState.value.pendingPasswordNode
         archivePasswordStore.setPassword(uri, password)
         _uiState.update {
             it.copy(
                 isPasswordDialogVisible = false,
                 passwordError = null,
-                pendingPasswordUri = null
+                pendingPasswordUri = null,
+                pendingPasswordNode = null
             )
         }
-        loadDirectory(uri, paneIndex)
+        if (pendingNode != null) {
+            openQuickLook(pendingNode)
+        } else {
+            loadDirectory(uri, paneIndex)
+        }
     }
 
     private fun isTextOrCodeNode(node: VfsNode): Boolean {
@@ -568,6 +582,7 @@ class ExplorerViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 pendingPasswordUri = node.uri,
+                                pendingPasswordNode = node,
                                 isPasswordDialogVisible = true,
                                 passwordError = if (archivePasswordStore.hasPassword(node.uri)) {
                                     context.getString(R.string.archive_password_wrong)

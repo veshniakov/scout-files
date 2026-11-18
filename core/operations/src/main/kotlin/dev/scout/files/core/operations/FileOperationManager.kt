@@ -536,13 +536,49 @@ class FileOperationManager @Inject constructor(
         val archiveUri = task.sources.firstOrNull() ?: return
         val destDir = task.destinationDir ?: return
 
+        var savedConflictAction: ConflictAction? = null
+        var processedFilesCount = 0
+
+        if (ArchiveUri.isArchiveUri(archiveUri)) {
+            val meta = fetchArchiveMetadataWithAuthRetry(taskId, archiveUri)
+            if (!meta.isDirectory) {
+                // Single file extraction from inside archive
+                updateTask(taskId) {
+                    it.copy(
+                        totalFiles = 1,
+                        totalBytes = meta.sizeBytes,
+                        currentFileName = meta.name
+                    )
+                }
+                val initialTarget = destDir.resolve(meta.name)
+                val (effectiveTarget, shouldSkip) = resolveTargetWithConflict(
+                    taskId = taskId,
+                    sourceUri = archiveUri,
+                    targetUri = initialTarget,
+                    isDirectory = false,
+                    savedConflict = null
+                ) {}
+                if (!shouldSkip) {
+                    copyStreamWithSpeed(taskId, archiveUri, effectiveTarget)
+                    updateTask(taskId) { it.copy(processedFiles = 1) }
+                }
+                return
+            }
+        }
+
         val rootArchiveUri = if (ArchiveUri.isArchiveUri(archiveUri)) {
             archiveUri
         } else {
             ArchiveUri.build(archiveUri, "/")
         }
 
-        // Recursively extract all nodes from archive
+        // Pre-count total files and total bytes
+        runCatching {
+            val (totalCount, totalBytes) = countArchiveFilesAndBytes(taskId, rootArchiveUri)
+            updateTask(taskId) { it.copy(totalFiles = totalCount, totalBytes = totalBytes) }
+        }
+
+        // Recursively extract all nodes from archive with conflict handling
         suspend fun extractNode(currentUri: VfsUri, currentDest: VfsUri) {
             coroutineContext.ensureActive()
             checkPauseBarrier(taskId)
@@ -552,20 +588,82 @@ class FileOperationManager @Inject constructor(
                 coroutineContext.ensureActive()
                 checkPauseBarrier(taskId)
 
-                val targetChild = currentDest.resolve(child.name)
-                if (child.isDirectory) {
-                    if (!vfsRouter.exists(targetChild)) {
-                        vfsRouter.createDirectory(targetChild)
+                // Sanitize against Zip Slip
+                val safeName = child.name.replace("..", "").trim()
+                if (safeName.isEmpty() || safeName == ".") continue
+
+                val targetChild = currentDest.resolve(safeName)
+                val (effectiveTarget, shouldSkip) = resolveTargetWithConflict(
+                    taskId = taskId,
+                    sourceUri = child.uri,
+                    targetUri = targetChild,
+                    isDirectory = child.isDirectory,
+                    savedConflict = savedConflictAction
+                ) { decision ->
+                    if (decision.applyToAll) {
+                        savedConflictAction = decision.action
                     }
-                    extractNode(child.uri, targetChild)
+                }
+
+                if (shouldSkip) {
+                    if (!child.isDirectory) {
+                        processedFilesCount++
+                        updateTask(taskId) { it.copy(processedFiles = processedFilesCount) }
+                    }
+                    continue
+                }
+
+                if (child.isDirectory) {
+                    if (!vfsRouter.exists(effectiveTarget)) {
+                        vfsRouter.createDirectory(effectiveTarget)
+                    }
+                    extractNode(child.uri, effectiveTarget)
                 } else {
                     updateTask(taskId) { it.copy(currentFileName = child.name) }
-                    copyStreamWithSpeed(taskId, child.uri, targetChild)
+                    copyStreamWithSpeed(taskId, child.uri, effectiveTarget)
+                    processedFilesCount++
+                    updateTask(taskId) { it.copy(processedFiles = processedFilesCount) }
                 }
             }
         }
 
         extractNode(rootArchiveUri, destDir)
+    }
+
+    private suspend fun fetchArchiveMetadataWithAuthRetry(
+        taskId: String,
+        uri: VfsUri
+    ): VfsNode {
+        while (true) {
+            try {
+                return vfsRouter.getMetadata(uri)
+            } catch (e: VfsException.AuthenticationRequired) {
+                val password = requestPasswordPrompt(taskId, uri, isWrong = archivePasswordStore.hasPassword(uri))
+                if (password != null) {
+                    archivePasswordStore.setPassword(uri, password)
+                } else {
+                    throw CancellationException("Extraction cancelled: password not provided")
+                }
+            }
+        }
+    }
+
+    private suspend fun countArchiveFilesAndBytes(taskId: String, rootUri: VfsUri): Pair<Int, Long> {
+        var count = 0
+        var bytes = 0L
+        suspend fun scan(uri: VfsUri) {
+            val children = fetchArchiveChildrenWithAuthRetry(taskId, uri)
+            for (child in children) {
+                if (child.isDirectory) {
+                    scan(child.uri)
+                } else {
+                    count++
+                    bytes += child.sizeBytes
+                }
+            }
+        }
+        scan(rootUri)
+        return Pair(count, bytes)
     }
 
     private suspend fun fetchArchiveChildrenWithAuthRetry(

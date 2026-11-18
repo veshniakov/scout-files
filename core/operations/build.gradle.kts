@@ -41,6 +41,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.javax.inject)
 
+    testImplementation(project(":providers:archive"))
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

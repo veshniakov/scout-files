@@ -1,5 +1,6 @@
 package dev.scout.files.core.operations
 
+import dev.scout.files.core.model.ArchiveUri
 import dev.scout.files.core.model.VfsException
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
@@ -10,6 +11,8 @@ import dev.scout.files.core.vfs.ArchivePasswordStore
 import dev.scout.files.core.vfs.FileSystemProvider
 import dev.scout.files.core.vfs.RandomAccessContent
 import dev.scout.files.core.vfs.VfsRouter
+import dev.scout.files.provider.archive.ArchiveFileSystemProvider
+import javax.inject.Provider
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -105,8 +108,11 @@ class FileOperationManagerTest {
     @Before
     fun setUp() {
         tempDir = Files.createTempDirectory("scout_ops_test").toFile()
-        vfsRouter = VfsRouter(setOf(TestFileProvider()), testDispatcher)
         passwordStore = ArchivePasswordStore()
+        val routerProvider = Provider<VfsRouter> { vfsRouter }
+        val archiveProvider = ArchiveFileSystemProvider(passwordStore, routerProvider, testDispatcher)
+        val fileProvider = TestFileProvider()
+        vfsRouter = VfsRouter(setOf(fileProvider, archiveProvider), testDispatcher)
         manager = FileOperationManager(vfsRouter, passwordStore, testDispatcher)
     }
 
@@ -255,5 +261,109 @@ class FileOperationManagerTest {
 
         manager.cancel(taskId)
         assertEquals(OperationStatus.CANCELLED, manager.tasks.value.first { it.id == taskId }.status)
+    }
+
+    @Test
+    fun testExtractWithConflictOverwrite() = runTest(testDispatcher) {
+        val zipFile = File(tempDir, "archive_ow.zip")
+        val fileInZip = File(tempDir, "data.txt").apply { writeText("Zip Data Content") }
+        ZipFile(zipFile).addFile(fileInZip)
+
+        val destFolder = File(tempDir, "extract_dest_ow").apply { mkdirs() }
+        val existing = File(destFolder, "data.txt").apply { writeText("Existing Disk Data") }
+
+        val taskId = manager.enqueueExtract(
+            VfsUri.fromFile(zipFile.absolutePath),
+            VfsUri.fromFile(destFolder.absolutePath)
+        )
+        advanceTimeBy(100)
+
+        // Conflict should trigger for data.txt
+        val conflict = manager.activeConflict.value
+        assertNotNull(conflict)
+        assertEquals("data.txt", conflict?.targetUri?.name)
+
+        manager.resolveConflict(ConflictDecision(ConflictAction.OVERWRITE, applyToAll = false))
+        advanceUntilIdle()
+
+        val task = manager.tasks.value.first { it.id == taskId }
+        assertEquals(OperationStatus.COMPLETED, task.status)
+        assertEquals("Zip Data Content", existing.readText())
+    }
+
+    @Test
+    fun testExtractWithConflictSkip() = runTest(testDispatcher) {
+        val zipFile = File(tempDir, "archive_sk.zip")
+        val fileInZip = File(tempDir, "data_sk.txt").apply { writeText("Zip Skip Content") }
+        ZipFile(zipFile).addFile(fileInZip)
+
+        val destFolder = File(tempDir, "extract_dest_sk").apply { mkdirs() }
+        val existing = File(destFolder, "data_sk.txt").apply { writeText("Preserved Disk Data") }
+
+        val taskId = manager.enqueueExtract(
+            VfsUri.fromFile(zipFile.absolutePath),
+            VfsUri.fromFile(destFolder.absolutePath)
+        )
+        advanceTimeBy(100)
+
+        val conflict = manager.activeConflict.value
+        assertNotNull(conflict)
+
+        manager.resolveConflict(ConflictDecision(ConflictAction.SKIP, applyToAll = false))
+        advanceUntilIdle()
+
+        val task = manager.tasks.value.first { it.id == taskId }
+        assertEquals(OperationStatus.COMPLETED, task.status)
+        assertEquals("Preserved Disk Data", existing.readText())
+    }
+
+    @Test
+    fun testExtractWithConflictKeepBoth() = runTest(testDispatcher) {
+        val zipFile = File(tempDir, "archive_kb.zip")
+        val fileInZip = File(tempDir, "data_kb.txt").apply { writeText("Zip KeepBoth Content") }
+        ZipFile(zipFile).addFile(fileInZip)
+
+        val destFolder = File(tempDir, "extract_dest_kb").apply { mkdirs() }
+        val existing = File(destFolder, "data_kb.txt").apply { writeText("Existing KB Data") }
+
+        val taskId = manager.enqueueExtract(
+            VfsUri.fromFile(zipFile.absolutePath),
+            VfsUri.fromFile(destFolder.absolutePath)
+        )
+        advanceTimeBy(100)
+
+        val conflict = manager.activeConflict.value
+        assertNotNull(conflict)
+
+        manager.resolveConflict(ConflictDecision(ConflictAction.KEEP_BOTH, applyToAll = false))
+        advanceUntilIdle()
+
+        val task = manager.tasks.value.first { it.id == taskId }
+        assertEquals(OperationStatus.COMPLETED, task.status)
+        assertEquals("Existing KB Data", existing.readText())
+
+        val uniqueFile = File(destFolder, "data_kb (1).txt")
+        assertTrue(uniqueFile.exists())
+        assertEquals("Zip KeepBoth Content", uniqueFile.readText())
+    }
+
+    @Test
+    fun testExtractSingleFileFromInsideArchive() = runTest(testDispatcher) {
+        val zipFile = File(tempDir, "archive_single.zip")
+        val fileInZip = File(tempDir, "single_entry.txt").apply { writeText("Single File Content") }
+        ZipFile(zipFile).addFile(fileInZip)
+
+        val destFolder = File(tempDir, "extract_dest_single").apply { mkdirs() }
+        val internalUri = ArchiveUri.build(VfsUri.fromFile(zipFile.absolutePath), "single_entry.txt")
+
+        val taskId = manager.enqueueExtract(internalUri, VfsUri.fromFile(destFolder.absolutePath))
+        advanceUntilIdle()
+
+        val task = manager.tasks.value.first { it.id == taskId }
+        assertEquals(OperationStatus.COMPLETED, task.status)
+
+        val extracted = File(destFolder, "single_entry.txt")
+        assertTrue(extracted.exists())
+        assertEquals("Single File Content", extracted.readText())
     }
 }

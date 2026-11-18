@@ -107,6 +107,7 @@ data class ExplorerUiState(
     val isOperationsSheetVisible: Boolean = false,
     val compressDialogSources: List<VfsUri>? = null,
     val pendingPasswordUri: VfsUri? = null,
+    val pendingPasswordNode: VfsNode? = null,
     val isPasswordDialogVisible: Boolean = false,
     val passwordError: String? = null
 ) {

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_name">Файловые операции</string>
+    <string name="notification_channel_desc">Отображает прогресс и элементы управления для фоновых файловых операций</string>
+    <string name="notification_title_copy">Scout: Копирование файлов</string>
+    <string name="notification_title_move">Scout: Перемещение файлов</string>
+    <string name="notification_title_delete">Scout: Удаление файлов</string>
+    <string name="notification_title_compress">Scout: Сжатие архива</string>
+    <string name="notification_title_extract">Scout: Распаковка архива</string>
+    <string name="notification_status_paused">Приостановлено</string>
+    <string name="notification_status_waiting_conflict">Ожидание разрешения конфликта</string>
+    <string name="notification_status_waiting_password">Ожидание ввода пароля</string>
+    <string name="notification_action_resume">Продолжить</string>
+    <string name="notification_action_pause">Пауза</string>
+    <string name="notification_action_cancel">Отмена</string>
+</resources>

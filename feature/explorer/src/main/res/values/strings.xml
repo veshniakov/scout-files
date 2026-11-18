@@ -134,6 +134,7 @@
     <string name="operations_delete">Deleting</string>
     <string name="operations_compress">Compressing</string>
     <string name="operations_extract">Extracting</string>
+    <string name="operations_status_queued">Queued</string>
     <string name="operations_status_running">Running</string>
     <string name="operations_status_paused">Paused</string>
     <string name="operations_status_waiting_conflict">Conflict</string>
