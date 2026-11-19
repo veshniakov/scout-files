@@ -3,9 +3,13 @@ package dev.scout.files.core.database.repository
 import android.os.Environment
 import dev.scout.files.core.database.dao.BookmarkDao
 import dev.scout.files.core.database.dao.FileTagDao
+import dev.scout.files.core.database.dao.ServerConnectionDao
 import dev.scout.files.core.database.entity.BookmarkEntity
 import dev.scout.files.core.database.entity.FileTagCrossRefEntity
+import dev.scout.files.core.database.entity.toDomain
+import dev.scout.files.core.database.entity.toEntity
 import dev.scout.files.core.model.FileTag
+import dev.scout.files.core.model.ServerConnection
 import dev.scout.files.core.model.TagColor
 import dev.scout.files.core.model.VfsUri
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +28,8 @@ data class Bookmark(
 @Singleton
 class MetadataRepository @Inject constructor(
     private val bookmarkDao: BookmarkDao,
-    private val fileTagDao: FileTagDao
+    private val fileTagDao: FileTagDao,
+    private val serverConnectionDao: ServerConnectionDao
 ) {
 
     suspend fun checkAndPrepopulateDefaults() {
@@ -143,5 +148,27 @@ class MetadataRepository @Inject constructor(
 
     suspend fun clearTags(uri: VfsUri) {
         fileTagDao.clearTagsForUri(uri.raw)
+    }
+
+    fun getServerConnections(): Flow<List<ServerConnection>> {
+        return serverConnectionDao.getAllConnections().map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    suspend fun getServerConnection(id: String): ServerConnection? {
+        return serverConnectionDao.getConnectionById(id)?.toDomain()
+    }
+
+    suspend fun saveServerConnection(connection: ServerConnection) {
+        serverConnectionDao.insertOrUpdate(connection.toEntity())
+    }
+
+    suspend fun deleteServerConnection(id: String) {
+        serverConnectionDao.deleteById(id)
+    }
+
+    suspend fun updateServerConnectionLastConnected(id: String, timestamp: Long = System.currentTimeMillis()) {
+        serverConnectionDao.updateLastConnected(id, timestamp)
     }
 }

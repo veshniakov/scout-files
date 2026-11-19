@@ -18,11 +18,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,14 +38,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.scout.files.core.database.repository.Bookmark
+import dev.scout.files.core.model.NetworkProtocol
+import dev.scout.files.core.model.ServerConnection
 import dev.scout.files.core.model.StorageVolume
 import dev.scout.files.core.model.TagColor
 import dev.scout.files.core.model.VfsUri
@@ -55,9 +69,14 @@ fun ExplorerSidebar(
     volumes: List<StorageVolume>,
     standardDirectories: List<StandardDirectory>,
     bookmarks: List<Bookmark>,
+    serverConnections: List<ServerConnection> = emptyList(),
     activeUri: VfsUri?,
     selectedTagFilter: TagColor?,
     onNavigate: (VfsUri) -> Unit,
+    onConnectionClick: (ServerConnection) -> Unit = {},
+    onAddConnection: () -> Unit = {},
+    onEditConnection: (ServerConnection) -> Unit = {},
+    onDeleteConnection: (ServerConnection) -> Unit = {},
     onTagSelected: (TagColor?) -> Unit,
     onAddBookmark: () -> Unit,
     onRemoveBookmark: (VfsUri) -> Unit,
@@ -180,6 +199,140 @@ fun ExplorerSidebar(
                     }
                 }
             }
+
+            // SECTION 1.5: NETWORK & CLOUD
+            HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                SidebarSectionHeader(title = stringResource(R.string.sidebar_network_and_cloud))
+                IconButton(
+                    onClick = onAddConnection,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(R.string.add_connection),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            serverConnections.forEach { connection ->
+                val rootUri = connection.rootVfsUri()
+                val isSelected = activeUri != null && (activeUri == rootUri || activeUri.raw.startsWith(rootUri.raw))
+                var menuExpanded by remember { mutableStateOf(false) }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onConnectionClick(connection) }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ProtocolBadge(connection.protocol)
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = connection.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (connection.requireBiometric) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = stringResource(R.string.connection_require_biometric),
+                                        modifier = Modifier.size(13.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            val subtitle = when (connection.protocol) {
+                                NetworkProtocol.SMB -> connection.shareOrBucket?.let { "$it on ${connection.host}" } ?: connection.host
+                                NetworkProtocol.S3 -> connection.shareOrBucket?.let { "s3://$it" } ?: connection.host
+                                NetworkProtocol.GDRIVE -> "Google Drive"
+                                else -> if (connection.username.isNotEmpty()) "${connection.username}@${connection.host}" else connection.host
+                            }
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Context Menu for Edit / Delete
+                        Box {
+                            IconButton(
+                                onClick = { menuExpanded = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_connection)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onEditConnection(connection)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.delete_connection)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onDeleteConnection(connection)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
 
             // SECTION 2: FAVORITES
             Row(
@@ -343,4 +496,31 @@ private fun SidebarSectionHeader(title: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
     )
+}
+
+@Composable
+fun ProtocolBadge(protocol: NetworkProtocol, modifier: Modifier = Modifier) {
+    val (badgeText, containerColor, contentColor) = when (protocol) {
+        NetworkProtocol.SFTP -> Triple("SFTP", Color(0xFF1565C0), Color.White)
+        NetworkProtocol.SMB -> Triple("SMB", Color(0xFF2E7D32), Color.White)
+        NetworkProtocol.FTP -> Triple("FTP", Color(0xFF00838F), Color.White)
+        NetworkProtocol.FTPS -> Triple("FTPS", Color(0xFF00695C), Color.White)
+        NetworkProtocol.WEBDAV -> Triple("DAV", Color(0xFFEF6C00), Color.White)
+        NetworkProtocol.GDRIVE -> Triple("GDRV", Color(0xFFD32F2F), Color.White)
+        NetworkProtocol.S3 -> Triple("S3", Color(0xFF6A1B9A), Color.White)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = containerColor,
+        modifier = modifier
+    ) {
+        Text(
+            text = badgeText,
+            color = contentColor,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+        )
+    }
 }

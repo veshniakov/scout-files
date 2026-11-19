@@ -263,11 +263,16 @@ fun ScoutPathBar(
                             }
                         } else {
                             // Standard Root / Scheme Item
+                            val rootTargetUri = if (!currentUri.authority.isNullOrEmpty()) {
+                                VfsUri("${currentUri.scheme}://${currentUri.authority}/")
+                            } else {
+                                VfsUri("${currentUri.scheme}:///")
+                            }
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.primaryContainer,
                                 modifier = Modifier.clickable {
-                                    onNavigate(VfsUri("${currentUri.scheme}:///"))
+                                    onNavigate(rootTargetUri)
                                 }
                             ) {
                                 Row(

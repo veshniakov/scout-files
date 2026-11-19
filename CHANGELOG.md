@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0-alpha] - 2026-11-19
+
+### Added
+- **`:core:model` Domain Extensions**:
+  - `NetworkProtocol`: `SFTP`, `SMB`, `FTP`, `FTPS`, `WEBDAV`, `GDRIVE`, `S3` with scheme mappings and default ports.
+  - `AuthType`: `PASSWORD`, `SSH_KEY`, `OAUTH2`, `ACCESS_KEY`, `GUEST`.
+  - `WebDavPreset`: `CUSTOM`, `NEXTCLOUD`, `OWNCLOUD`, `YANDEX_DISK` (`https://webdav.yandex.ru`) with path resolution and port definitions.
+  - `ServerConnection`: Pure Kotlin model representing remote connection profile (id, name, protocol, host, port, username, authType, shareOrBucket, domainOrRegion, rootPath, useTls, requireBiometric, lastConnectedMillis).
+  - `ServerCredentials`: Model representing sensitive authentication secrets (password, privateKeyPem, privateKeyPassphrase, oauthAccessToken, oauthRefreshToken, oauthClientId, s3SecretKey).
+- **`:core:security` & Biometric Protection**:
+  - `CredentialVault`: Hardware-backed credential storage interface (`storeCredentials`, `getCredentials`, `deleteCredentials`, `clearAll`).
+  - `KeystoreCredentialVault`: Production implementation using AndroidKeyStore hardware-backed master key and `AES/GCM/NoPadding` encryption, encoding credentials to JSON before AES-GCM encryption with 12-byte IV prepending.
+  - `InMemoryCredentialVault`: Hermetic in-memory vault for isolated JVM unit tests.
+  - `BiometricAuthChecker`: Biometric prompt gateway built on `androidx.biometric:1.1.0` and `BiometricPrompt`, checking device biometric hardware enrollment and prompting with user-friendly credentials fallbacks.
+- **`:core:database` Room Database Expansion**:
+  - `ServerConnectionEntity`: Room entity mapping `ServerConnection` with primary key, protocol, authentication type, and connection parameters.
+  - `ServerConnectionDao`: Data access object providing reactive `Flow<List<ServerConnectionEntity>>`, CRUD operations (`insert`, `update`, `delete`, `getById`).
+  - Bumped `ScoutDatabase` to version 2 with server connection persistence support.
+  - `MetadataRepository` expansion: Added `getServerConnections()`, `getServerConnection(id)`, `saveServerConnection(connection)`, `deleteServerConnection(id)`, and `updateServerConnectionLastConnected(id)`.
+- **`:providers:sftp` (SSH File Transfer Protocol)**:
+  - Integration with `com.hierynomus:sshj:0.38.0` and `org.bouncycastle:bcprov-jdk18on:1.78.1` / `bcpkix-jdk18on`.
+  - `SftpSessionPool`: Reusable thread-safe SSH/SFTP session manager supporting password authentication and SSH private key authentication (Ed25519, RSA, ECDSA with passphrases) with auto-reconnection and stale session cleanup.
+  - `SftpFileSystemProvider`: VFS provider for `sftp://<connectionId>/<remote_path>` implementing directory listing, metadata resolution, file stream reading and writing, directory creation, deletion, renaming, and `openRandomAccess` over `RemoteFile.read` positioned offsets.
+  - Registered via `@Binds @IntoSet FileSystemProvider`.
+- **`:providers:smb` (Samba / Windows Share)**:
+  - Integration with `com.hierynomus:smbj:0.13.0`.
+  - `SmbSessionPool`: SMBv2/SMBv3 connection pool supporting guest logins, username/password, and Windows domain authentication with multi-share multiplexing.
+  - `SmbFileSystemProvider`: VFS provider for `smb://<connectionId>/<share>/<remote_path>` implementing directory browsing, file streaming, directory creation, deletion, renaming, and `openRandomAccess` over `com.hierynomus.smbj.share.File.read` positioned offsets.
+  - Registered via `@Binds @IntoSet FileSystemProvider`.
+- **`:providers:ftp` (FTP & FTPS)**:
+  - Integration with `commons-net:commons-net:3.11.1`.
+  - `FtpFileSystemProvider` & `FtpsFileSystemProvider`: VFS providers for `ftp://` and `ftps://` with passive mode (`enterLocalPassiveMode()`), binary transfer mode, UTF-8 control channel encoding, and implicit/explicit TLS.
+  - `FtpRandomAccessContent`: Random-access streaming using FTP `REST` (`setRestartOffset`) command to support seekable reading and streaming.
+  - Registered via `@Binds @IntoSet FileSystemProvider`.
+- **`:providers:webdav` (WebDAV & AWS S3 / MinIO)**:
+  - Integration with `com.squareup.okhttp3:okhttp:4.12.0`.
+  - `WebDavFileSystemProvider`: WebDAV client under `webdav://` scheme supporting `PROPFIND` multistatus XML parsing, `PUT`, `MKCOL`, `DELETE`, `MOVE`, and `GET` streaming with HTTP `Range: bytes=start-end` random-access reading.
+  - WebDAV Presets: Built-in URL auto-construction for Nextcloud (`/remote.php/dav/files/<user>/`), ownCloud, and Yandex.Disk (`https://webdav.yandex.ru`).
+  - `S3FileSystemProvider`: Amazon S3 and MinIO provider under `s3://` scheme with pure Kotlin AWS Signature V4 signing (`AwsSigV4Signer`), `ListObjectsV2` XML parsing, `GetObject` streaming with `Range` header support, `PutObject`, and `DeleteObject`. Compatible with MinIO, AWS S3, Cloudflare R2, and Backblaze B2.
+  - Registered via `@Binds @IntoSet FileSystemProvider`.
+- **`:providers:gdrive` (Google Drive REST API v3)**:
+  - `GoogleDriveFileSystemProvider`: VFS provider for `gdrive://<connectionId>/<remote_path>` over Google Drive REST API v3.
+  - Token Lifecycle: Automatic OAuth2 access token refresh on HTTP 401 using `oauthRefreshToken` via `https://oauth2.googleapis.com/token`, updating refreshed tokens in `CredentialVault`.
+  - Path Resolution Cache: In-memory cache mapping hierarchical file paths to Google Drive `fileId`s for high-performance navigation and metadata lookups.
+  - Operations: Folder creation, file uploading, deletion, renaming via `PATCH`, and random-access reading (`alt=media` with `Range` header).
+  - Document Export: Automatic on-the-fly export of Google Workspace documents (Docs -> PDF, Sheets -> XLSX, Slides -> PDF/DOCX) when opening read stream.
+  - Registered via `@Binds @IntoSet FileSystemProvider`.
+- **`:feature:connections` Management Wizard**:
+  - `ServerConnectionSheet`: Modal bottom sheet wizard for creating and editing server connection profiles.
+  - Dynamic Form UI: Tailored configuration fields based on selected protocol (SFTP keys/passphrase vs password, SMB share/domain/guest, S3 endpoint/bucket/region/keys, WebDAV presets, Google Drive).
+  - Test Connection: Integrated connectivity verification button querying `VfsRouter.listDirectory` before saving with live feedback.
+  - Biometric Gating Toggle: Switch to require biometric authentication when opening the connection.
+- **`:feature:explorer` Network & Cloud Integration**:
+  - Sidebar «Network & Cloud» section displaying saved server connections with protocol badges (SFTP, SMB, FTP, WebDAV, S3, GDrive), add connection button, and edit/delete actions.
+  - Biometric Prompt on Open: Authenticates user via `BiometricAuthChecker` before navigating into connections marked with `requireBiometric = true`.
+  - Seamless `ScoutPathBar` support for all remote schemes, preserving path hierarchy and navigation history.
+  - Cross-provider file operations: Seamless copy/move between remote providers, virtual archives, and local storage via `FileOperationManager`.
+- **Bilingual Localization**:
+  - Comprehensive English (`res/values/strings.xml`) and Russian (`res/values-ru/strings.xml`) strings for all new protocols, fields, connection sheets, test connection states, and biometric authentication prompts.
+- **Hermetic Test Suite**:
+  - 165 unit tests across 22 test suites covering all remote providers, AWS SigV4 signer, Google Drive JSON parser, CredentialVault encryption, Room DAO, and ViewModel state transitions.
+
+### Changed
+- Bumped `MainActivity` to extend `FragmentActivity` for `BiometricPrompt` support.
+- Updated `libs.versions.toml` with `androidx.biometric:1.1.0`, `com.hierynomus:sshj:0.38.0`, `org.bouncycastle:bcprov-jdk18on:1.78.1`, `org.bouncycastle:bcpkix-jdk18on:1.78.1`, `com.hierynomus:smbj:0.13.0`, `commons-net:commons-net:3.11.1`, and `com.squareup.okhttp3:okhttp:4.12.0`.
+- Configured packaging resource exclusions in `app/build.gradle.kts` to resolve duplicate BouncyCastle / SSHJ / SMBJ metadata entries.
+
+### Fixed
+- Path normalization in breadcrumbs and `ScoutPathBar` when navigating non-standard root paths in remote servers.
+
+### Security
+- Hardware-backed AndroidKeyStore master key encryption (`AES/GCM/NoPadding`) protecting server credentials at rest.
+- Biometric authentication challenge before mounting or navigating protected network volumes.
+
 ## [0.3.0-alpha] - 2026-11-18
 
 ### Added

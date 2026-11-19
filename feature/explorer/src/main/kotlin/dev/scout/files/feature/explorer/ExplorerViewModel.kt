@@ -14,6 +14,7 @@ import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
 import dev.scout.files.core.operations.FileOperationManager
 import dev.scout.files.core.operations.model.OperationStatus
+import dev.scout.files.core.security.CredentialVault
 import dev.scout.files.core.vfs.ArchivePasswordStore
 import dev.scout.files.core.vfs.VfsRouter
 import dev.scout.files.core.vfs.di.IoDispatcher
@@ -50,6 +51,7 @@ class ExplorerViewModel @Inject constructor(
     private val archivePasswordStore: ArchivePasswordStore,
     private val volumeManager: LocalStorageVolumeManager,
     private val metadataRepository: MetadataRepository,
+    private val credentialVault: CredentialVault,
     @ApplicationContext private val context: Context,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
@@ -98,6 +100,13 @@ class ExplorerViewModel @Inject constructor(
             launch {
                 metadataRepository.getBookmarks().collect { bookmarks ->
                     _uiState.update { it.copy(bookmarks = bookmarks) }
+                }
+            }
+
+            // Observe server connections
+            launch {
+                metadataRepository.getServerConnections().collect { connections ->
+                    _uiState.update { it.copy(serverConnections = connections) }
                 }
             }
 
@@ -168,6 +177,42 @@ class ExplorerViewModel @Inject constructor(
             is ExplorerIntent.AddBookmark -> addBookmark(intent.uri, intent.title)
             is ExplorerIntent.RemoveBookmark -> removeBookmark(intent.uri)
             is ExplorerIntent.RefreshVolumesAndPermissions -> refreshVolumesAndPermissions()
+
+            // Connection intents
+            is ExplorerIntent.OpenCreateConnectionSheet -> _uiState.update {
+                it.copy(isConnectionSheetVisible = true, editingConnection = null)
+            }
+            is ExplorerIntent.OpenEditConnectionSheet -> _uiState.update {
+                it.copy(isConnectionSheetVisible = true, editingConnection = intent.connection)
+            }
+            is ExplorerIntent.DismissConnectionSheet -> _uiState.update {
+                it.copy(isConnectionSheetVisible = false, editingConnection = null)
+            }
+            is ExplorerIntent.RequestDeleteConnection -> _uiState.update {
+                it.copy(connectionToDelete = intent.connection)
+            }
+            is ExplorerIntent.DismissDeleteConnectionDialog -> _uiState.update {
+                it.copy(connectionToDelete = null)
+            }
+            is ExplorerIntent.ConfirmDeleteConnection -> {
+                val conn = _uiState.value.connectionToDelete
+                if (conn != null) {
+                    viewModelScope.launch(ioDispatcher) {
+                        metadataRepository.deleteServerConnection(conn.id)
+                        credentialVault.deleteCredentials(conn.id)
+                    }
+                    _uiState.update { it.copy(connectionToDelete = null) }
+                }
+            }
+            is ExplorerIntent.ConnectToServer -> {
+                if (intent.connection.requireBiometric && !intent.isBiometricAuthenticated) {
+                    viewModelScope.launch {
+                        _effects.send(ExplorerEffect.RequestBiometricAuth(intent.connection, intent.paneIndex))
+                    }
+                } else {
+                    navigateTo(intent.connection.rootVfsUri(), intent.paneIndex)
+                }
+            }
 
             // Operation intents
             is ExplorerIntent.ShowCompressDialog -> _uiState.update { it.copy(compressDialogSources = intent.sources) }

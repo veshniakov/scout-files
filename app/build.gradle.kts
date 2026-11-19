@@ -14,8 +14,8 @@ android {
         applicationId = "dev.scout.files"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0-alpha"
+        versionCode = 4
+        versionName = "0.4.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -46,16 +46,37 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        resources {
+            excludes += listOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+                "META-INF/NOTICE*",
+                "META-INF/LICENSE*",
+                "META-INF/versions/**",
+                "**/OSGI-INF/**",
+                "OSGI-INF/**"
+            )
+        }
+    }
 }
 
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:vfs"))
     implementation(project(":core:database"))
+    implementation(project(":core:security"))
     implementation(project(":core:designsystem"))
     implementation(project(":core:operations"))
     implementation(project(":providers:local"))
     implementation(project(":providers:archive"))
+    implementation(project(":providers:sftp"))
+    implementation(project(":providers:smb"))
+    implementation(project(":providers:ftp"))
+    implementation(project(":providers:webdav"))
+    implementation(project(":providers:gdrive"))
+    implementation(project(":feature:connections"))
     implementation(project(":feature:explorer"))
 
     implementation(libs.androidx.core.ktx)

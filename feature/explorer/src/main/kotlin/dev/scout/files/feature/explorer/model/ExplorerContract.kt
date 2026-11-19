@@ -2,6 +2,7 @@ package dev.scout.files.feature.explorer.model
 
 import dev.scout.files.core.database.repository.Bookmark
 import dev.scout.files.core.model.FileTag
+import dev.scout.files.core.model.ServerConnection
 import dev.scout.files.core.model.StorageVolume
 import dev.scout.files.core.model.TagColor
 import dev.scout.files.core.model.VfsNode
@@ -99,6 +100,10 @@ data class ExplorerUiState(
     val volumes: List<StorageVolume> = emptyList(),
     val standardDirectories: List<StandardDirectory> = emptyList(),
     val bookmarks: List<Bookmark> = emptyList(),
+    val serverConnections: List<ServerConnection> = emptyList(),
+    val isConnectionSheetVisible: Boolean = false,
+    val editingConnection: ServerConnection? = null,
+    val connectionToDelete: ServerConnection? = null,
     val quickLook: QuickLookState? = null,
     val hasStoragePermission: Boolean = true,
     val operationsTasks: List<FileOperationTask> = emptyList(),
@@ -154,6 +159,19 @@ sealed interface ExplorerIntent {
     data class RemoveBookmark(val uri: VfsUri) : ExplorerIntent
     data object RefreshVolumesAndPermissions : ExplorerIntent
 
+    // Connection Intents
+    data object OpenCreateConnectionSheet : ExplorerIntent
+    data class OpenEditConnectionSheet(val connection: ServerConnection) : ExplorerIntent
+    data object DismissConnectionSheet : ExplorerIntent
+    data class RequestDeleteConnection(val connection: ServerConnection) : ExplorerIntent
+    data object DismissDeleteConnectionDialog : ExplorerIntent
+    data object ConfirmDeleteConnection : ExplorerIntent
+    data class ConnectToServer(
+        val connection: ServerConnection,
+        val isBiometricAuthenticated: Boolean = false,
+        val paneIndex: Int = 0
+    ) : ExplorerIntent
+
     // Operations and Archive Intents
     data class ShowCompressDialog(val sources: List<VfsUri>) : ExplorerIntent
     data object HideCompressDialog : ExplorerIntent
@@ -174,4 +192,5 @@ sealed interface ExplorerEffect {
     data class ShowSnackbar(val message: String) : ExplorerEffect
     data class OpenFile(val node: VfsNode) : ExplorerEffect
     data object RequestStoragePermission : ExplorerEffect
+    data class RequestBiometricAuth(val connection: ServerConnection, val paneIndex: Int = 0) : ExplorerEffect
 }

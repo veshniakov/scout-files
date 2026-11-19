@@ -5,11 +5,20 @@
 
     <!-- Sidebar -->
     <string name="sidebar_devices">Devices</string>
+    <string name="sidebar_network_and_cloud">Network &amp; Cloud</string>
     <string name="sidebar_favorites">Favorites</string>
     <string name="sidebar_tags">Finder Tags</string>
     <string name="storage_free_of_total">%1$s free of %2$s</string>
     <string name="add_to_favorites">Add to Favorites</string>
     <string name="remove_bookmark">Remove Bookmark</string>
+    <string name="add_connection">Add Connection</string>
+    <string name="edit_connection">Edit Connection</string>
+    <string name="delete_connection">Delete Connection</string>
+    <string name="delete_connection_title">Delete Connection</string>
+    <string name="delete_connection_message">Are you sure you want to delete connection \'%1$s\'? Saved credentials will be removed.</string>
+    <string name="biometric_prompt_subtitle">Confirm identity to access remote server</string>
+    <string name="biometric_auth_failed">Biometric authentication failed or canceled</string>
+    <string name="connection_require_biometric">Biometric Protected</string>
 
     <!-- Standard Directories -->
     <string name="dir_home">Home</string>

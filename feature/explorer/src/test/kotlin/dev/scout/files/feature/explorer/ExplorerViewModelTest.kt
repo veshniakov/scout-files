@@ -3,6 +3,9 @@ package dev.scout.files.feature.explorer
 import android.content.Context
 import dev.scout.files.core.database.repository.MetadataRepository
 import dev.scout.files.core.model.ArchiveUri
+import dev.scout.files.core.model.AuthType
+import dev.scout.files.core.model.NetworkProtocol
+import dev.scout.files.core.model.ServerConnection
 import dev.scout.files.core.model.StorageVolume
 import dev.scout.files.core.model.VfsNode
 import dev.scout.files.core.model.VfsUri
@@ -11,21 +14,26 @@ import dev.scout.files.core.operations.FileOperationManager
 import dev.scout.files.core.operations.model.FileOperationTask
 import dev.scout.files.core.operations.model.FileOperationType
 import dev.scout.files.core.operations.model.OperationStatus
+import dev.scout.files.core.security.CredentialVault
 import dev.scout.files.core.vfs.ArchivePasswordStore
 import dev.scout.files.core.vfs.VfsRouter
+import dev.scout.files.feature.explorer.model.ExplorerEffect
 import dev.scout.files.feature.explorer.model.ExplorerIntent
 import dev.scout.files.feature.explorer.model.SortConfig
 import dev.scout.files.feature.explorer.model.SortDirection
 import dev.scout.files.feature.explorer.model.SortField
 import dev.scout.files.provider.local.LocalStorageVolumeManager
 import dev.scout.files.provider.local.StandardDirectory
+import app.cash.turbine.test
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -49,6 +57,7 @@ class ExplorerViewModelTest {
     private val archivePasswordStore: ArchivePasswordStore = mockk(relaxed = true)
     private val volumeManager: LocalStorageVolumeManager = mockk(relaxed = true)
     private val metadataRepository: MetadataRepository = mockk(relaxed = true)
+    private val credentialVault: CredentialVault = mockk(relaxed = true)
     private val context: Context = mockk(relaxed = true)
 
     private val rootUri = VfsUri("file:///storage/emulated/0")
@@ -113,6 +122,7 @@ class ExplorerViewModelTest {
         )
         coEvery { metadataRepository.checkAndPrepopulateDefaults() } returns Unit
         coEvery { metadataRepository.getBookmarks() } returns flowOf(emptyList())
+        coEvery { metadataRepository.getServerConnections() } returns flowOf(emptyList())
         coEvery { metadataRepository.getTagsForUris(any()) } returns flowOf(emptyMap())
         coEvery { vfsRouter.listDirectory(any()) } returns sampleNodes
 
@@ -138,6 +148,7 @@ class ExplorerViewModelTest {
             archivePasswordStore = archivePasswordStore,
             volumeManager = volumeManager,
             metadataRepository = metadataRepository,
+            credentialVault = credentialVault,
             context = context,
             ioDispatcher = testDispatcher
         )
@@ -471,5 +482,142 @@ class ExplorerViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(2, state.operationsTasks.size)
         assertTrue(state.operationsTasks.all { it.status == OperationStatus.COMPLETED })
+    }
+
+    @Test
+    fun testServerConnectionsListEmissions() = runTest(testDispatcher) {
+        val connections = listOf(
+            ServerConnection(
+                id = "sftp_1",
+                name = "Remote SFTP",
+                protocol = NetworkProtocol.SFTP,
+                host = "example.com"
+            ),
+            ServerConnection(
+                id = "smb_1",
+                name = "Office SMB",
+                protocol = NetworkProtocol.SMB,
+                host = "10.0.0.5",
+                shareOrBucket = "share"
+            )
+        )
+        val connectionsFlow = MutableStateFlow<List<ServerConnection>>(emptyList())
+        coEvery { metadataRepository.getServerConnections() } returns connectionsFlow
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.serverConnections.isEmpty())
+
+        connectionsFlow.value = connections
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.serverConnections.size)
+        assertEquals("Remote SFTP", viewModel.uiState.value.serverConnections[0].name)
+        assertEquals("Office SMB", viewModel.uiState.value.serverConnections[1].name)
+    }
+
+    @Test
+    fun testConnectToServerWithoutBiometricNavigatesDirectly() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val connection = ServerConnection(
+            id = "sftp_100",
+            name = "Direct SFTP",
+            protocol = NetworkProtocol.SFTP,
+            host = "myserver.org",
+            requireBiometric = false
+        )
+
+        viewModel.handleIntent(ExplorerIntent.ConnectToServer(connection))
+        advanceUntilIdle()
+
+        val activeTab = viewModel.uiState.value.primaryPane.activeTab
+        assertNotNull(activeTab)
+        assertEquals(connection.rootVfsUri(), activeTab?.currentUri)
+    }
+
+    @Test
+    fun testConnectToServerWithBiometricProtectionGating() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val secureConnection = ServerConnection(
+            id = "secure_sftp_1",
+            name = "Secure SFTP",
+            protocol = NetworkProtocol.SFTP,
+            host = "bank.internal",
+            requireBiometric = true
+        )
+
+        viewModel.effects.test {
+            // 1. Attempt connection without biometric authentication -> must emit RequestBiometricAuth
+            viewModel.handleIntent(ExplorerIntent.ConnectToServer(secureConnection, isBiometricAuthenticated = false))
+            val effect = awaitItem()
+            assertTrue(effect is ExplorerEffect.RequestBiometricAuth)
+            val authEffect = effect as ExplorerEffect.RequestBiometricAuth
+            assertEquals(secureConnection.id, authEffect.connection.id)
+
+            // Verify activeTab has NOT navigated yet
+            val activeTabBefore = viewModel.uiState.value.primaryPane.activeTab
+            assertEquals(rootUri, activeTabBefore?.currentUri)
+
+            // 2. Supply authenticated intent -> navigation proceeds
+            viewModel.handleIntent(ExplorerIntent.ConnectToServer(secureConnection, isBiometricAuthenticated = true))
+            advanceUntilIdle()
+
+            val activeTabAfter = viewModel.uiState.value.primaryPane.activeTab
+            assertEquals(secureConnection.rootVfsUri(), activeTabAfter?.currentUri)
+        }
+    }
+
+    @Test
+    fun testConnectionSheetVisibilityIntents() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isConnectionSheetVisible)
+        assertNull(viewModel.uiState.value.editingConnection)
+
+        // Open create sheet
+        viewModel.handleIntent(ExplorerIntent.OpenCreateConnectionSheet)
+        assertTrue(viewModel.uiState.value.isConnectionSheetVisible)
+        assertNull(viewModel.uiState.value.editingConnection)
+
+        // Dismiss sheet
+        viewModel.handleIntent(ExplorerIntent.DismissConnectionSheet)
+        assertFalse(viewModel.uiState.value.isConnectionSheetVisible)
+
+        // Open edit sheet
+        val conn = ServerConnection(id = "c1", name = "Edit Me", protocol = NetworkProtocol.FTP, host = "ftp.host")
+        viewModel.handleIntent(ExplorerIntent.OpenEditConnectionSheet(conn))
+        assertTrue(viewModel.uiState.value.isConnectionSheetVisible)
+        assertEquals(conn, viewModel.uiState.value.editingConnection)
+    }
+
+    @Test
+    fun testDeleteConnectionLifecycle() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val conn = ServerConnection(id = "c_del", name = "To Delete", protocol = NetworkProtocol.S3, host = "s3.aws")
+
+        // Request delete shows dialog
+        viewModel.handleIntent(ExplorerIntent.RequestDeleteConnection(conn))
+        assertEquals(conn, viewModel.uiState.value.connectionToDelete)
+
+        // Dismiss dialog cancels delete
+        viewModel.handleIntent(ExplorerIntent.DismissDeleteConnectionDialog)
+        assertNull(viewModel.uiState.value.connectionToDelete)
+
+        // Re-request and confirm delete
+        viewModel.handleIntent(ExplorerIntent.RequestDeleteConnection(conn))
+        viewModel.handleIntent(ExplorerIntent.ConfirmDeleteConnection)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.connectionToDelete)
+        coVerify(exactly = 1) { metadataRepository.deleteServerConnection("c_del") }
+        coVerify(exactly = 1) { credentialVault.deleteCredentials("c_del") }
     }
 }

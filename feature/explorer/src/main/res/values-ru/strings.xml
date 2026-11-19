@@ -5,11 +5,20 @@
 
     <!-- Sidebar -->
     <string name="sidebar_devices">Устройства</string>
+    <string name="sidebar_network_and_cloud">Сеть и облако</string>
     <string name="sidebar_favorites">Избранное</string>
     <string name="sidebar_tags">Теги Finder</string>
     <string name="storage_free_of_total">Свободно %1$s из %2$s</string>
     <string name="add_to_favorites">Добавить в избранное</string>
     <string name="remove_bookmark">Удалить закладку</string>
+    <string name="add_connection">Добавить подключение</string>
+    <string name="edit_connection">Редактировать подключение</string>
+    <string name="delete_connection">Удалить подключение</string>
+    <string name="delete_connection_title">Удалить подключение</string>
+    <string name="delete_connection_message">Вы уверены, что хотите удалить подключение «%1$s»? Сохранённые учетные данные будут удалены.</string>
+    <string name="biometric_prompt_subtitle">Подтвердите личность для доступа к удаленному серверу</string>
+    <string name="biometric_auth_failed">Биометрическая аутентификация не пройдена или отменена</string>
+    <string name="connection_require_biometric">Защищено биометрией</string>
 
     <!-- Standard Directories -->
     <string name="dir_home">Домашняя папка</string>

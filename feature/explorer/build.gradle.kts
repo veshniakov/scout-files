@@ -38,9 +38,11 @@ dependencies {
     api(project(":core:model"))
     api(project(":core:vfs"))
     api(project(":core:database"))
+    api(project(":core:security"))
     api(project(":core:designsystem"))
     api(project(":core:operations"))
     api(project(":providers:local"))
+    implementation(project(":feature:connections"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

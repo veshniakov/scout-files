@@ -26,7 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
@@ -38,8 +40,12 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
+import androidx.fragment.app.FragmentActivity
+import dev.scout.files.core.security.BiometricAuthChecker
+import dev.scout.files.feature.connections.ui.ServerConnectionSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -80,6 +86,7 @@ fun ExplorerScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val biometricAuthChecker = remember(context) { BiometricAuthChecker(context.applicationContext) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -99,6 +106,31 @@ fun ExplorerScreen(
                 is ExplorerEffect.RequestStoragePermission -> {
                     val intent = StoragePermissionHelper.createManageAllFilesAccessIntent(context)
                     permissionLauncher.launch(intent)
+                }
+                is ExplorerEffect.RequestBiometricAuth -> {
+                    val activity = context as? FragmentActivity
+                    if (activity != null) {
+                        scope.launch {
+                            val authSuccess = biometricAuthChecker.authenticate(
+                                activity = activity,
+                                title = effect.connection.name,
+                                subtitle = context.getString(R.string.biometric_prompt_subtitle)
+                            )
+                            if (authSuccess) {
+                                viewModel.handleIntent(
+                                    ExplorerIntent.ConnectToServer(
+                                        connection = effect.connection,
+                                        isBiometricAuthenticated = true,
+                                        paneIndex = effect.paneIndex
+                                    )
+                                )
+                            } else {
+                                snackbarHostState.showSnackbar(context.getString(R.string.biometric_auth_failed))
+                            }
+                        }
+                    } else {
+                        snackbarHostState.showSnackbar(context.getString(R.string.biometric_auth_failed))
+                    }
                 }
             }
         }
@@ -125,11 +157,27 @@ fun ExplorerScreen(
             volumes = uiState.volumes,
             standardDirectories = uiState.standardDirectories,
             bookmarks = uiState.bookmarks,
+            serverConnections = uiState.serverConnections,
             activeUri = activeTab?.currentUri,
             selectedTagFilter = activeTab?.selectedTagFilter,
             onNavigate = { uri ->
                 viewModel.handleIntent(ExplorerIntent.NavigateTo(uri, activePaneIndex))
                 scope.launch { drawerState.close() }
+            },
+            onConnectionClick = { connection ->
+                viewModel.handleIntent(
+                    ExplorerIntent.ConnectToServer(connection, paneIndex = activePaneIndex)
+                )
+                scope.launch { drawerState.close() }
+            },
+            onAddConnection = {
+                viewModel.handleIntent(ExplorerIntent.OpenCreateConnectionSheet)
+            },
+            onEditConnection = { connection ->
+                viewModel.handleIntent(ExplorerIntent.OpenEditConnectionSheet(connection))
+            },
+            onDeleteConnection = { connection ->
+                viewModel.handleIntent(ExplorerIntent.RequestDeleteConnection(connection))
             },
             onTagSelected = { tagColor ->
                 viewModel.handleIntent(ExplorerIntent.FilterByTag(tagColor, activePaneIndex))
@@ -294,6 +342,42 @@ fun ExplorerScreen(
             onDismiss = { viewModel.handleIntent(ExplorerIntent.HideCompressDialog) },
             onConfirm = { name, isZip, password ->
                 viewModel.handleIntent(ExplorerIntent.CompressSelected(name, isZip, password, activePaneIndex))
+            }
+        )
+    }
+
+    // Connection Wizard Sheet
+    if (uiState.isConnectionSheetVisible) {
+        ServerConnectionSheet(
+            connectionToEdit = uiState.editingConnection,
+            onDismiss = { viewModel.handleIntent(ExplorerIntent.DismissConnectionSheet) },
+            onSaved = { savedConnection ->
+                viewModel.handleIntent(ExplorerIntent.DismissConnectionSheet)
+                viewModel.handleIntent(
+                    ExplorerIntent.ConnectToServer(savedConnection, paneIndex = activePaneIndex)
+                )
+            }
+        )
+    }
+
+    // Delete Connection Dialog
+    uiState.connectionToDelete?.let { conn ->
+        AlertDialog(
+            onDismissRequest = { viewModel.handleIntent(ExplorerIntent.DismissDeleteConnectionDialog) },
+            title = { Text(stringResource(R.string.delete_connection_title)) },
+            text = { Text(stringResource(R.string.delete_connection_message, conn.name)) },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.handleIntent(ExplorerIntent.ConfirmDeleteConnection) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.dialog_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.handleIntent(ExplorerIntent.DismissDeleteConnectionDialog) }) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
             }
         )
     }
